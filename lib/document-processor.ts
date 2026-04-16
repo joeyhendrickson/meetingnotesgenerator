@@ -3,6 +3,10 @@ import { queryPinecone } from './pinecone';
 import { PDFDocument } from 'pdf-lib';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
+import WordExtractor from 'word-extractor';
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 // Note: pdfkit may have issues in serverless - using simpler approach for PDFs
 
@@ -11,9 +15,42 @@ export interface DocumentTemplate {
   type: 'docx' | 'pdf' | 'txt';
 }
 
+function isZipDocxBuffer(buf: Buffer): boolean {
+  return buf.length >= 2 && buf[0] === 0x50 && buf[1] === 0x4b;
+}
+
+function isOleWordBinaryDoc(buf: Buffer): boolean {
+  return (
+    buf.length >= 4 &&
+    buf[0] === 0xd0 &&
+    buf[1] === 0xcf &&
+    buf[2] === 0x11 &&
+    buf[3] === 0xe0
+  );
+}
+
+async function extractLegacyBinaryDoc(buffer: Buffer): Promise<string> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ultra-doc-'));
+  const filePath = path.join(dir, 'document.doc');
+  try {
+    await fs.writeFile(filePath, buffer);
+    const extractor = new WordExtractor();
+    const extracted = await extractor.extract(filePath);
+    return extracted.getBody() || '';
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+async function extractDocxWithMammoth(buffer: Buffer): Promise<string> {
+  const result = await mammoth.extractRawText({ buffer });
+  return result.value || '';
+}
+
 export async function extractTextFromDocument(
   file: File | Buffer,
-  mimeType: string
+  mimeType: string,
+  fileName?: string
 ): Promise<string> {
   let buffer: Buffer;
 
@@ -23,6 +60,8 @@ export async function extractTextFromDocument(
   } else {
     buffer = file;
   }
+
+  const nameLower = (file instanceof File ? file.name : fileName || '').toLowerCase();
 
   // Normalize mime type for matching
   const normalizedMimeType = mimeType.toLowerCase();
@@ -37,18 +76,28 @@ export async function extractTextFromDocument(
     }
   } else if (
     normalizedMimeType.includes('wordprocessingml') ||
-    normalizedMimeType.includes('msword') ||
-    normalizedMimeType.includes('document') ||
     normalizedMimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-    normalizedMimeType === 'application/msword' ||
-    normalizedMimeType.endsWith('.docx')
+    normalizedMimeType.endsWith('.docx') ||
+    nameLower.endsWith('.docx') ||
+    isZipDocxBuffer(buffer)
   ) {
     try {
-      const result = await mammoth.extractRawText({ buffer });
-      return result.value || '';
+      return await extractDocxWithMammoth(buffer);
     } catch (error) {
       console.error('Error parsing DOCX:', error);
       throw new Error(`Failed to parse DOCX: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  } else if (
+    normalizedMimeType === 'application/msword' ||
+    normalizedMimeType.includes('msword') ||
+    nameLower.endsWith('.doc') ||
+    isOleWordBinaryDoc(buffer)
+  ) {
+    try {
+      return await extractLegacyBinaryDoc(buffer);
+    } catch (error) {
+      console.error('Error parsing legacy .doc:', error);
+      throw new Error(`Failed to parse Word .doc file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   } else if (
     normalizedMimeType.includes('text') || 
@@ -63,6 +112,21 @@ export async function extractTextFromDocument(
   ) {
     // For spreadsheets, try to extract as text (basic)
     return buffer.toString('utf-8');
+  }
+
+  if (isZipDocxBuffer(buffer)) {
+    try {
+      return await extractDocxWithMammoth(buffer);
+    } catch (error) {
+      console.error('Error parsing file as DOCX (zip signature):', error);
+    }
+  }
+  if (isOleWordBinaryDoc(buffer)) {
+    try {
+      return await extractLegacyBinaryDoc(buffer);
+    } catch (error) {
+      console.error('Error parsing file as legacy .doc:', error);
+    }
   }
 
   // If we can't determine the type, try to extract as text

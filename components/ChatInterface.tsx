@@ -2,6 +2,17 @@
 
 import { useState, useRef, useEffect } from 'react';
 
+export interface AdvisorProjectFile {
+  fileName: string;
+  text: string;
+}
+
+interface ChatInterfaceProps {
+  advisorProject?: AdvisorProjectFile | null;
+  onAdvisorProjectChange?: (project: AdvisorProjectFile | null) => void;
+  projectFlowNonce?: number;
+}
+
 interface Source {
   title: string;
   fileId: string;
@@ -27,7 +38,11 @@ interface Conversation {
   updatedAt: string;
 }
 
-export default function ChatInterface() {
+export default function ChatInterface({
+  advisorProject = null,
+  onAdvisorProjectChange,
+  projectFlowNonce = 0,
+}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -35,9 +50,20 @@ export default function ChatInterface() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null);
+  const [showProjectPanel, setShowProjectPanel] = useState(false);
+  const [projectUploading, setProjectUploading] = useState(false);
+  const [projectUploadError, setProjectUploadError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const speechSynthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const projectFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (projectFlowNonce > 0) {
+      setShowProjectPanel(true);
+      setProjectUploadError(null);
+    }
+  }, [projectFlowNonce]);
 
   // Load conversations from localStorage on mount
   useEffect(() => {
@@ -110,6 +136,36 @@ export default function ChatInterface() {
     setShowHistory(false);
   };
 
+  const handleAdvisorProjectFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !onAdvisorProjectChange) return;
+
+    setProjectUploadError(null);
+    setProjectUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/advisor-project/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Upload failed');
+      }
+      onAdvisorProjectChange({
+        fileName: data.fileName || file.name,
+        text: data.text || '',
+      });
+      setShowProjectPanel(false);
+    } catch (err) {
+      setProjectUploadError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setProjectUploading(false);
+    }
+  };
+
   const deleteConversation = (conversationId: string) => {
     const updated = conversations.filter(c => c.id !== conversationId);
     localStorage.setItem('ultra_conversations', JSON.stringify(updated));
@@ -155,6 +211,12 @@ export default function ChatInterface() {
         body: JSON.stringify({
           message: input,
           history: messages,
+          ...(advisorProject
+            ? {
+                projectContext: advisorProject.text,
+                projectFileName: advisorProject.fileName,
+              }
+            : {}),
         }),
       });
 
@@ -335,8 +397,81 @@ export default function ChatInterface() {
     URL.revokeObjectURL(url);
   };
 
+  const projectControlsEnabled = Boolean(onAdvisorProjectChange);
+
   return (
     <div className="flex flex-col h-[650px] lg:h-[700px]">
+      {projectControlsEnabled && (showProjectPanel || advisorProject) && (
+        <div className="mb-4 p-4 rounded-xl border-2 border-dashed border-gray-400 bg-gray-50 space-y-3">
+          {showProjectPanel && (
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Upload project template</p>
+              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                Use a Word document (.doc or .docx)—for example a video script or slide outline with visual notes.
+                The advisor uses your file for structure and scene-by-scene context, and still queries the vector
+                knowledge base so answers stay grounded in your Ultra materials when relevant.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={projectUploading}
+                  onClick={() => projectFileInputRef.current?.click()}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-black rounded-lg hover:opacity-90 disabled:opacity-50 border border-black"
+                >
+                  {projectUploading ? 'Reading document…' : 'Choose .doc / .docx'}
+                </button>
+                <button
+                  type="button"
+                  disabled={projectUploading}
+                  onClick={() => {
+                    setShowProjectPanel(false);
+                    setProjectUploadError(null);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+          {advisorProject && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-gray-200">
+              <p className="text-sm text-gray-800">
+                <span className="font-semibold">Active project:</span>{' '}
+                {advisorProject.fileName}{' '}
+                <span className="text-gray-500">
+                  ({advisorProject.text.length.toLocaleString()} characters)
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => projectFileInputRef.current?.click()}
+                  className="px-3 py-1.5 text-xs font-semibold border border-black rounded-lg hover:bg-gray-100"
+                >
+                  Replace file
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAdvisorProjectChange?.(null)}
+                  className="px-3 py-1.5 text-xs font-semibold text-red-700 border border-red-200 rounded-lg hover:bg-red-50"
+                >
+                  Remove project
+                </button>
+              </div>
+            </div>
+          )}
+          <input
+            ref={projectFileInputRef}
+            type="file"
+            accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            className="hidden"
+            aria-hidden
+            onChange={handleAdvisorProjectFile}
+          />
+          {projectUploadError && <p className="text-sm text-red-600">{projectUploadError}</p>}
+        </div>
+      )}
       {/* Header with Actions */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -460,8 +595,28 @@ export default function ChatInterface() {
               </svg>
             </div>
             <p className="text-xl font-semibold mb-2 text-gray-800">Welcome to ULTRA Advisor</p>
-            <p className="text-gray-600 mb-1">Ask me anything about Blackboard Ultra, course setup, management, strategic use of Ultra, or content questions.</p>
-            <p className="text-sm text-gray-500 mt-2">I&apos;ll reference a vast knowledge base about Ultra to provide my responses.</p>
+            {advisorProject ? (
+              <>
+                <p className="text-gray-600 mb-1">
+                  You have an active project template. Ask for narration, scene-by-scene copy, or clarifications that
+                  follow your document&apos;s visuals and order. I will use your upload together with the vector
+                  knowledge base when answering.
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Tip: reference scene or slide labels from your file so answers line up with your template.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-gray-600 mb-1">
+                  Ask me anything about Blackboard Ultra, course setup, management, strategic use of Ultra, or content
+                  questions.
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  I&apos;ll reference a vast knowledge base about Ultra to provide my responses.
+                </p>
+              </>
+            )}
           </div>
         )}
         {messages.map((message, index) => (
@@ -614,7 +769,11 @@ export default function ChatInterface() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question about Blackboard Ultra..."
+            placeholder={
+              advisorProject
+                ? 'Ask about the next scene, narration, or Ultra topics…'
+                : 'Ask a question about Blackboard Ultra…'
+            }
                     className="w-full px-5 py-4 pr-12 border-2 border-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 bg-white shadow-sm disabled:bg-gray-50 disabled:cursor-not-allowed"
             disabled={isLoading}
           />

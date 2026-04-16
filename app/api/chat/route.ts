@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { chatCompletion, getEmbedding } from '@/lib/openai';
 import { queryPinecone } from '@/lib/pinecone';
 
+const MAX_PROJECT_CONTEXT_CHARS = 100_000;
+
 export async function POST(request: NextRequest) {
   try {
-    const { message, history = [] } = await request.json();
+    const { message, history = [], projectContext, projectFileName } = await request.json();
 
     if (!message) {
       return NextResponse.json(
@@ -13,38 +15,95 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const hasProject =
+      typeof projectContext === 'string' && projectContext.trim().length > 0;
+    const projectLabel =
+      typeof projectFileName === 'string' && projectFileName.trim().length > 0
+        ? projectFileName.trim()
+        : 'Uploaded project';
+
+    let truncatedProject = '';
+    if (hasProject) {
+      const raw = projectContext.trim();
+      truncatedProject =
+        raw.length > MAX_PROJECT_CONTEXT_CHARS
+          ? `${raw.slice(0, MAX_PROJECT_CONTEXT_CHARS)}\n\n[Project document truncated for length.]`
+          : raw;
+    }
+
     // Get embedding for the user's message
     const queryEmbedding = await getEmbedding(message);
 
     // Query Pinecone for relevant context (with error handling)
     let matches: any[] = [];
+    const topK = hasProject ? 10 : 5;
     try {
-      matches = await queryPinecone(queryEmbedding, 5);
+      matches = await queryPinecone(queryEmbedding, topK);
     } catch (pineconeError) {
       console.warn('Pinecone query failed, continuing without context:', pineconeError);
       // Continue without context if Pinecone fails
       matches = [];
     }
 
-    // Calculate a simple confidence score based on the highest match score
-    const confidenceScore = matches.length > 0 ? matches[0].score || 0 : 0;
+    // Calculate confidence: favor strong vector matches; boost when a substantive project doc is attached
+    let confidenceScore = matches.length > 0 ? matches[0].score || 0 : 0;
+    if (hasProject) {
+      const len = truncatedProject.length;
+      if (len >= 400) {
+        confidenceScore = Math.max(confidenceScore, 0.82);
+      } else if (len >= 80) {
+        confidenceScore = Math.max(confidenceScore, 0.72);
+      }
+    }
 
-    // Build context from Pinecone results and extract sources
-    const context = matches
+    const vectorContext = matches
       .map((match) => {
         const metadata = match.metadata || {};
         return `[${metadata.title || 'Document'}]: ${metadata.text || match.id}`;
       })
       .join('\n\n');
 
-    const sources = matches.map((match) => ({
-      id: match.id,
-      title: match.metadata?.title || 'Untitled Document',
-      text: match.metadata?.text || '',
-      score: match.score || 0,
-      fileId: match.metadata?.fileId || '',
-      chunkIndex: match.metadata?.chunkIndex || 0,
-    }));
+    const projectBlock = hasProject
+      ? `--- User uploaded project (${projectLabel}) ---\n${truncatedProject}\n--- End uploaded project ---`
+      : '';
+
+    const kbBlock =
+      matches.length > 0
+        ? `--- Knowledge base (vector database) ---\n${vectorContext}\n--- End knowledge base ---`
+        : '';
+
+    const context = [projectBlock, kbBlock].filter(Boolean).join('\n\n');
+
+    const sources: Array<{
+      id: string;
+      title: string;
+      text: string;
+      score: number;
+      fileId: string;
+      chunkIndex: number;
+    }> = [];
+
+    if (hasProject) {
+      sources.push({
+        id: 'project-upload',
+        title: `Project template: ${projectLabel}`,
+        text: truncatedProject.slice(0, 280),
+        score: 0.95,
+        fileId: '',
+        chunkIndex: 0,
+      });
+    }
+
+    sources.push(
+      ...matches.map((match) => ({
+        id: match.id,
+        title: match.metadata?.title || 'Untitled Document',
+        text: match.metadata?.text || '',
+        score: match.score || 0,
+        fileId: match.metadata?.fileId || '',
+        chunkIndex: match.metadata?.chunkIndex || 0,
+      }))
+    );
 
     // Prepare chat history
     const messages = history.map((msg: { role: string; content: string }) => ({
@@ -59,7 +118,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Get response from OpenAI with context
-    let response = await chatCompletion(messages, context);
+    let response = await chatCompletion(messages, context || undefined, {
+      projectMode: hasProject,
+    });
 
     // Remove markdown formatting to make it more conversational and human
     // Remove headers (###, ##, #)
@@ -83,7 +144,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       response,
-      contextUsed: matches.length > 0,
+      contextUsed: hasProject || matches.length > 0,
+      projectContextUsed: hasProject,
       sources,
       confidenceScore,
     });

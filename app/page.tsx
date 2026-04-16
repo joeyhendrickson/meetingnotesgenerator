@@ -12,6 +12,11 @@ import YouTubeTranscriber from '@/components/YouTubeTranscriber';
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'chat' | 'browser'>('chat');
   const [activeApp, setActiveApp] = useState<string | null>(null);
+  const [advisorProject, setAdvisorProject] = useState<{
+    fileName: string;
+    text: string;
+  } | null>(null);
+  const [projectFlowNonce, setProjectFlowNonce] = useState(0);
 
   useEffect(() => {
     console.log('✅ Home component mounted successfully!', 'activeTab:', activeTab);
@@ -44,6 +49,19 @@ export default function Home() {
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Ultra How To Advisor and Web Content Analysis Tool, Powered by AI
           </p>
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveApp(null);
+                setActiveTab('chat');
+                setProjectFlowNonce((n) => n + 1);
+              }}
+              className="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-black bg-white border-2 border-black rounded-xl shadow-md hover:bg-gray-50 transition-colors"
+            >
+              New Project
+            </button>
+          </div>
         </header>
 
         <div className="max-w-7xl mx-auto">
@@ -102,11 +120,19 @@ export default function Home() {
             ) : activeApp === 'youtube-transcriber' ? (
               <YouTubeTranscriber onBack={() => setActiveApp(null)} />
             ) : activeTab === 'chat' ? (
-              <ChatInterface />
+              <ChatInterface
+                advisorProject={advisorProject}
+                onAdvisorProjectChange={setAdvisorProject}
+                projectFlowNonce={projectFlowNonce}
+              />
             ) : activeTab === 'browser' ? (
               <DocumentBrowser />
             ) : (
-              <ChatInterface />
+              <ChatInterface
+                advisorProject={advisorProject}
+                onAdvisorProjectChange={setAdvisorProject}
+                projectFlowNonce={projectFlowNonce}
+              />
             )}
           </div>
         </div>
