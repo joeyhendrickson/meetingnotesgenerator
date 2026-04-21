@@ -2,30 +2,28 @@
 
 import { useState, useEffect } from 'react';
 import ChatInterface from '@/components/ChatInterface';
-import GoogleDriveTest from '@/components/GoogleDriveTest';
+import type { AdvisorProjectFile } from '@/components/ChatInterface';
 import DocumentBrowser from '@/components/DocumentBrowser';
+import ProgramPlanningWorkspace from '@/components/ProgramPlanningWorkspace';
 import AppMenu from '@/components/AppMenu';
 import WebsiteScanner from '@/components/WebsiteScanner';
 import Analytics from '@/components/Analytics';
 import YouTubeTranscriber from '@/components/YouTubeTranscriber';
 
+type MainTab = 'chat' | 'video-scripting' | 'program-planning' | 'browser';
+
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'chat' | 'browser'>('chat');
+  const [activeTab, setActiveTab] = useState<MainTab>('chat');
   const [activeApp, setActiveApp] = useState<string | null>(null);
-  const [advisorProject, setAdvisorProject] = useState<{
-    fileName: string;
-    text: string;
-  } | null>(null);
-  const [projectFlowNonce, setProjectFlowNonce] = useState(0);
+  const [videoAdvisorProject, setVideoAdvisorProject] = useState<AdvisorProjectFile | null>(null);
 
   useEffect(() => {
     console.log('✅ Home component mounted successfully!', 'activeTab:', activeTab);
     console.log('✅ React is working, event handlers should be functional');
-    
-    // Test if we can add event listeners
+
     const testClick = () => console.log('✅ Click events are working!');
     document.addEventListener('click', testClick, { once: true });
-    
+
     return () => {
       document.removeEventListener('click', testClick);
     };
@@ -33,8 +31,15 @@ export default function Home() {
 
   const handleAppSelect = (app: string) => {
     setActiveApp(app);
-    setActiveTab('chat'); // Reset to default tab when switching apps
+    setActiveTab('chat');
   };
+
+  const tabClass = (tab: MainTab) =>
+    `flex-1 min-w-[120px] sm:min-w-[140px] py-3 px-3 sm:px-5 rounded-xl font-semibold transition-all duration-300 text-sm sm:text-base ${
+      activeTab === tab
+        ? 'bg-black text-white shadow-lg transform scale-[1.02]'
+        : 'text-black hover:bg-gray-100 border border-gray-300'
+    }`;
 
   return (
     <main className="min-h-screen bg-white" style={{ pointerEvents: 'auto' }}>
@@ -43,49 +48,33 @@ export default function Home() {
           <div className="absolute top-0 right-0 z-10">
             <AppMenu onSelectApp={handleAppSelect} />
           </div>
-          <h1 className="text-5xl font-extrabold text-black mb-3">
-            Ultra Advisor
-          </h1>
+          <h1 className="text-5xl font-extrabold text-black mb-3">Ultra Advisor</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Ultra How To Advisor and Web Content Analysis Tool, Powered by AI
           </p>
-          <div className="mt-5 flex justify-center">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveApp(null);
-                setActiveTab('chat');
-                setProjectFlowNonce((n) => n + 1);
-              }}
-              className="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-black bg-white border-2 border-black rounded-xl shadow-md hover:bg-gray-50 transition-colors"
-            >
-              New Project
-            </button>
-          </div>
         </header>
 
         <div className="max-w-7xl mx-auto">
-          {/* Tab Navigation */}
           <div className="flex flex-wrap gap-2 mb-8 bg-white rounded-2xl shadow-lg p-2 border-2 border-black">
             <button
               type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Chat tab clicked');
                 setActiveTab('chat');
               }}
-              className={`flex-1 min-w-[140px] py-3 px-6 rounded-xl font-semibold transition-all duration-300 ${
-                activeTab === 'chat'
-                  ? 'bg-black text-white shadow-lg transform scale-105'
-                  : 'text-black hover:bg-gray-100 border border-gray-300'
-              }`}
+              className={tabClass('chat')}
             >
               <span className="flex items-center justify-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
                 </svg>
-                ULTRA Advisor
+                <span className="text-center leading-tight">ULTRA Advisor</span>
               </span>
             </button>
             <button
@@ -93,25 +82,66 @@ export default function Home() {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Browser tab clicked');
-                setActiveTab('browser');
+                setActiveTab('video-scripting');
               }}
-              className={`flex-1 min-w-[140px] py-3 px-6 rounded-xl font-semibold transition-all duration-300 ${
-                activeTab === 'browser'
-                  ? 'bg-black text-white shadow-lg transform scale-105'
-                  : 'text-black hover:bg-gray-100 border border-gray-300'
-              }`}
+              className={tabClass('video-scripting')}
             >
               <span className="flex items-center justify-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
                 </svg>
-                Vector DB Browser
+                <span className="text-center leading-tight">Video Scripting</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setActiveTab('program-planning');
+              }}
+              className={tabClass('program-planning')}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                  />
+                </svg>
+                <span className="text-center leading-tight">Program Planning</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setActiveTab('browser');
+              }}
+              className={tabClass('browser')}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  />
+                </svg>
+                <span className="text-center leading-tight">Vector DB Browser</span>
               </span>
             </button>
           </div>
 
-          {/* Tab Content */}
           <div className="bg-white rounded-2xl shadow-2xl p-6 lg:p-8 border-2 border-black">
             {activeApp === 'website-scanner' ? (
               <WebsiteScanner onBack={() => setActiveApp(null)} />
@@ -120,19 +150,17 @@ export default function Home() {
             ) : activeApp === 'youtube-transcriber' ? (
               <YouTubeTranscriber onBack={() => setActiveApp(null)} />
             ) : activeTab === 'chat' ? (
+              <ChatInterface />
+            ) : activeTab === 'video-scripting' ? (
               <ChatInterface
-                advisorProject={advisorProject}
-                onAdvisorProjectChange={setAdvisorProject}
-                projectFlowNonce={projectFlowNonce}
+                advisorProject={videoAdvisorProject}
+                onAdvisorProjectChange={setVideoAdvisorProject}
+                workflowVariant="video-scripting"
               />
-            ) : activeTab === 'browser' ? (
-              <DocumentBrowser />
+            ) : activeTab === 'program-planning' ? (
+              <ProgramPlanningWorkspace />
             ) : (
-              <ChatInterface
-                advisorProject={advisorProject}
-                onAdvisorProjectChange={setAdvisorProject}
-                projectFlowNonce={projectFlowNonce}
-              />
+              <DocumentBrowser />
             )}
           </div>
         </div>
@@ -140,4 +168,3 @@ export default function Home() {
     </main>
   );
 }
-

@@ -76,3 +76,33 @@ export async function chatCompletion(
   return response.choices[0]?.message?.content || '';
 }
 
+/** Long-form planning output; allows markdown and optional JSON mode for structured deliverables. */
+export async function programPlanningCompletion(
+  userContent: string,
+  options?: {
+    systemPrompt?: string;
+    temperature?: number;
+    maxTokens?: number;
+    jsonMode?: boolean;
+  }
+): Promise<string> {
+  const client = getOpenAIClient();
+  const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
+  const system =
+    options?.systemPrompt ||
+    'You are an expert program and portfolio manager. Follow the user instructions precisely.';
+
+  const response = await client.chat.completions.create({
+    model,
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: userContent },
+    ],
+    temperature: options?.temperature ?? 0.35,
+    max_tokens: options?.maxTokens ?? 7000,
+    ...(options?.jsonMode ? { response_format: { type: 'json_object' as const } } : {}),
+  });
+
+  return response.choices[0]?.message?.content || '';
+}
+

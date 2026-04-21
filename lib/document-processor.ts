@@ -3,6 +3,7 @@ import { queryPinecone } from './pinecone';
 import { PDFDocument } from 'pdf-lib';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
+import JSZip from 'jszip';
 import WordExtractor from 'word-extractor';
 import fs from 'fs/promises';
 import path from 'path';
@@ -15,8 +16,56 @@ export interface DocumentTemplate {
   type: 'docx' | 'pdf' | 'txt';
 }
 
-function isZipDocxBuffer(buf: Buffer): boolean {
+function isPkZipBuffer(buf: Buffer): boolean {
   return buf.length >= 2 && buf[0] === 0x50 && buf[1] === 0x4b;
+}
+
+function stripOfficeXmlText(xml: string): string {
+  return xml
+    .replace(/<a:p[\s>]/gi, '\n')
+    .replace(/<\/a:p>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Detect Word .docx vs PowerPoint .pptx inside a ZIP (Office Open XML). */
+async function extractFromOpenXmlOfficeZip(buffer: Buffer): Promise<string | null> {
+  if (!isPkZipBuffer(buffer)) return null;
+  const zip = await JSZip.loadAsync(buffer);
+  if (zip.file('word/document.xml')) {
+    return extractDocxWithMammoth(buffer);
+  }
+  const slideKeys = Object.keys(zip.files)
+    .filter((k) => /^ppt\/slides\/slide\d+\.xml$/i.test(k))
+    .sort((a, b) => {
+      const na = parseInt(/\d+/.exec(a)?.[0] || '0', 10);
+      const nb = parseInt(/\d+/.exec(b)?.[0] || '0', 10);
+      return na - nb;
+    });
+  if (slideKeys.length === 0 && !zip.file('ppt/presentation.xml')) {
+    return null;
+  }
+  const keys = slideKeys.length > 0 ? slideKeys : [];
+  if (keys.length === 0) {
+    return '';
+  }
+  const parts: string[] = [];
+  let n = 0;
+  for (const key of keys) {
+    const f = zip.file(key);
+    if (!f) continue;
+    const xml = await f.async('string');
+    const text = stripOfficeXmlText(xml);
+    if (text) {
+      n += 1;
+      parts.push(`Slide ${n}\n${text}`);
+    }
+  }
+  return parts.join('\n\n---\n\n');
 }
 
 function isOleWordBinaryDoc(buf: Buffer): boolean {
@@ -75,13 +124,29 @@ export async function extractTextFromDocument(
       throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   } else if (
+    normalizedMimeType.includes('presentationml') ||
+    normalizedMimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+    nameLower.endsWith('.pptx')
+  ) {
+    try {
+      const fromZip = await extractFromOpenXmlOfficeZip(buffer);
+      if (fromZip === null || fromZip === '') {
+        throw new Error('No slide text found');
+      }
+      return fromZip;
+    } catch (error) {
+      console.error('Error parsing PPTX:', error);
+      throw new Error(`Failed to parse PowerPoint (.pptx): ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  } else if (
     normalizedMimeType.includes('wordprocessingml') ||
     normalizedMimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
     normalizedMimeType.endsWith('.docx') ||
-    nameLower.endsWith('.docx') ||
-    isZipDocxBuffer(buffer)
+    nameLower.endsWith('.docx')
   ) {
     try {
+      const fromZip = await extractFromOpenXmlOfficeZip(buffer);
+      if (fromZip !== null) return fromZip;
       return await extractDocxWithMammoth(buffer);
     } catch (error) {
       console.error('Error parsing DOCX:', error);
@@ -114,11 +179,12 @@ export async function extractTextFromDocument(
     return buffer.toString('utf-8');
   }
 
-  if (isZipDocxBuffer(buffer)) {
+  if (isPkZipBuffer(buffer)) {
     try {
-      return await extractDocxWithMammoth(buffer);
+      const routed = await extractFromOpenXmlOfficeZip(buffer);
+      if (routed !== null) return routed;
     } catch (error) {
-      console.error('Error parsing file as DOCX (zip signature):', error);
+      console.error('Error parsing Office Open XML zip:', error);
     }
   }
   if (isOleWordBinaryDoc(buffer)) {

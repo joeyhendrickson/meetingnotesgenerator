@@ -10,7 +10,8 @@ export interface AdvisorProjectFile {
 interface ChatInterfaceProps {
   advisorProject?: AdvisorProjectFile | null;
   onAdvisorProjectChange?: (project: AdvisorProjectFile | null) => void;
-  projectFlowNonce?: number;
+  /** When set to video-scripting, opens the template workflow tuned for narration / scene work. */
+  workflowVariant?: 'default' | 'video-scripting';
 }
 
 interface Source {
@@ -41,7 +42,7 @@ interface Conversation {
 export default function ChatInterface({
   advisorProject = null,
   onAdvisorProjectChange,
-  projectFlowNonce = 0,
+  workflowVariant = 'default',
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -59,11 +60,11 @@ export default function ChatInterface({
   const projectFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (projectFlowNonce > 0) {
+    if (workflowVariant === 'video-scripting' && !advisorProject) {
       setShowProjectPanel(true);
       setProjectUploadError(null);
     }
-  }, [projectFlowNonce]);
+  }, [workflowVariant, advisorProject]);
 
   // Load conversations from localStorage on mount
   useEffect(() => {
@@ -405,11 +406,23 @@ export default function ChatInterface({
         <div className="mb-4 p-4 rounded-xl border-2 border-dashed border-gray-400 bg-gray-50 space-y-3">
           {showProjectPanel && (
             <div>
-              <p className="text-sm font-semibold text-gray-900">Upload project template</p>
+              <p className="text-sm font-semibold text-gray-900">
+                {workflowVariant === 'video-scripting' ? 'Upload video script or storyboard' : 'Upload project template'}
+              </p>
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                Use a Word document (.doc or .docx)—for example a video script or slide outline with visual notes.
-                The advisor uses your file for structure and scene-by-scene context, and still queries the vector
-                knowledge base so answers stay grounded in your Ultra materials when relevant.
+                {workflowVariant === 'video-scripting' ? (
+                  <>
+                    Use a Word document (.doc or .docx) with scene or slide descriptions and visual notes. The advisor
+                    uses it for narration and structure, and still searches your vector knowledge base for Blackboard
+                    Ultra grounding when relevant.
+                  </>
+                ) : (
+                  <>
+                    Use a Word document (.doc or .docx)—for example a video script or slide outline with visual notes.
+                    The advisor uses your file for structure and scene-by-scene context, and still queries the vector
+                    knowledge base so answers stay grounded in your Ultra materials when relevant.
+                  </>
+                )}
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
@@ -594,17 +607,27 @@ export default function ChatInterface({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <p className="text-xl font-semibold mb-2 text-gray-800">Welcome to ULTRA Advisor</p>
+            <p className="text-xl font-semibold mb-2 text-gray-800">
+              {workflowVariant === 'video-scripting' ? 'Video scripting' : 'Welcome to ULTRA Advisor'}
+            </p>
             {advisorProject ? (
               <>
                 <p className="text-gray-600 mb-1">
-                  You have an active project template. Ask for narration, scene-by-scene copy, or clarifications that
+                  You have an active script or template. Ask for narration, scene-by-scene copy, or clarifications that
                   follow your document&apos;s visuals and order. I will use your upload together with the vector
                   knowledge base when answering.
                 </p>
                 <p className="text-sm text-gray-500 mt-2">
                   Tip: reference scene or slide labels from your file so answers line up with your template.
                 </p>
+              </>
+            ) : workflowVariant === 'video-scripting' ? (
+              <>
+                <p className="text-gray-600 mb-1">
+                  Upload a script or slide-backed outline, then ask for narration aligned to each visual beat. The
+                  vector knowledge base still applies for Ultra-specific facts.
+                </p>
+                <p className="text-sm text-gray-500 mt-2">Use the panel above to attach your .doc or .docx.</p>
               </>
             ) : (
               <>
@@ -770,7 +793,7 @@ export default function ChatInterface({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={
-              advisorProject
+              workflowVariant === 'video-scripting' || advisorProject
                 ? 'Ask about the next scene, narration, or Ultra topics…'
                 : 'Ask a question about Blackboard Ultra…'
             }
