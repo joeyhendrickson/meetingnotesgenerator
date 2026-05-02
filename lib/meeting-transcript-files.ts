@@ -1,3 +1,6 @@
+/** Max transcripts that can feed one `/api/chat/meeting-transcripts` request (context size). */
+export const MEETING_TRANSCRIPT_CHAT_MAX_FILES = 15;
+
 /**
  * Whether a Drive file is treated as a user transcript (not generated summaries).
  * Aligns with MeetingNotesWorkspace checkboxes and meeting-notes generate-batch.

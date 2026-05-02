@@ -1,7 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { isMeetingTranscriptDriveFile } from '@/lib/meeting-transcript-files';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  isMeetingTranscriptDriveFile,
+  MEETING_TRANSCRIPT_CHAT_MAX_FILES,
+} from '@/lib/meeting-transcript-files';
 
 interface DriveFileRow {
   fileId: string;
@@ -25,15 +28,40 @@ export default function MeetingNotesChat({ selectedFileIds, files }: MeetingNote
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
+  const prevSelectionKey = useRef<string | null>(null);
 
-  const selectedNames = files
-    .filter((f) => selectedFileIds.includes(f.fileId))
-    .filter((f) => isMeetingTranscriptDriveFile(f.title || f.name || '', f.mimeType))
-    .map((f) => f.title || f.name || f.fileId);
+  const selectionKey = useMemo(
+    () => [...selectedFileIds].sort().join('|'),
+    [selectedFileIds]
+  );
+
+  const fileIdsForChat = useMemo(
+    () => selectedFileIds.slice(0, MEETING_TRANSCRIPT_CHAT_MAX_FILES),
+    [selectedFileIds]
+  );
+  const chatTruncated = selectedFileIds.length > MEETING_TRANSCRIPT_CHAT_MAX_FILES;
+
+  const contextLabels = useMemo(() => {
+    return fileIdsForChat.map((id) => {
+      const f = files.find((row) => row.fileId === id);
+      if (!f || !isMeetingTranscriptDriveFile(f.title || f.name || '', f.mimeType)) return null;
+      return f.title || f.name || id;
+    }).filter((label): label is string => label != null);
+  }, [fileIdsForChat, files]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (prevSelectionKey.current !== null && prevSelectionKey.current !== selectionKey) {
+      setMessages([]);
+    }
+    prevSelectionKey.current = selectionKey;
+  }, [selectionKey]);
+
+  /** Scroll only the chat transcript pane—never the main window (avoids jump when selecting Drive files). */
+  useEffect(() => {
+    if (messages.length === 0 && !loading) return;
+    const el = messagesScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages, loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,7 +80,7 @@ export default function MeetingNotesChat({ selectedFileIds, files }: MeetingNote
         body: JSON.stringify({
           message: userMsg.content,
           history: messages,
-          fileIds: selectedFileIds,
+          fileIds: fileIdsForChat,
         }),
       });
       const data = await res.json();
@@ -93,13 +121,26 @@ export default function MeetingNotesChat({ selectedFileIds, files }: MeetingNote
         {disabled ? (
           <p className="text-xs font-medium text-amber-800 mt-2">Select at least one transcript to enable chat.</p>
         ) : (
-          <p className="text-xs text-gray-700 mt-2">
-            <span className="font-semibold">In context:</span> {selectedNames.join('; ') || `${selectedFileIds.length} file(s)`}
-          </p>
+          <>
+            {chatTruncated && (
+              <p className="text-xs font-medium text-amber-800 mt-2">
+                Transcript chat is limited to {MEETING_TRANSCRIPT_CHAT_MAX_FILES} files per message. Using the first{' '}
+                {MEETING_TRANSCRIPT_CHAT_MAX_FILES} of {selectedFileIds.length} selected (same order as in the list on
+                the left).
+              </p>
+            )}
+            <p className="text-xs text-gray-700 mt-2">
+              <span className="font-semibold">In context for chat:</span>{' '}
+              {contextLabels.join('; ') || `${fileIdsForChat.length} file(s)`}
+            </p>
+          </>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-gray-50 to-white min-h-0">
+      <div
+        ref={messagesScrollRef}
+        className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-gray-50 to-white min-h-0"
+      >
         {messages.length === 0 && !disabled && (
           <p className="text-sm text-gray-500 text-center py-8">
             Ask about action items, decisions, who said what, or themes across the selected transcript(s).
@@ -134,7 +175,6 @@ export default function MeetingNotesChat({ selectedFileIds, files }: MeetingNote
             </div>
           </div>
         )}
-        <div ref={bottomRef} />
       </div>
 
       <form onSubmit={handleSubmit} className="p-3 border-t border-gray-200 flex gap-2 bg-white">

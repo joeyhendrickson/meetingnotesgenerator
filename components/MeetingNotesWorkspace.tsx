@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import MeetingNotesChat from '@/components/MeetingNotesChat';
-import { isMeetingTranscriptDriveFile } from '@/lib/meeting-transcript-files';
+import {
+  isMeetingTranscriptDriveFile,
+  MEETING_TRANSCRIPT_CHAT_MAX_FILES,
+} from '@/lib/meeting-transcript-files';
 
 interface DriveFileRow {
   fileId: string;
@@ -221,8 +224,9 @@ export default function MeetingNotesWorkspace() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch min-h-[480px]">
         <div className="flex flex-col gap-4 min-w-0 min-h-0">
           <div className="flex-1 min-h-0 border-2 border-gray-200 rounded-xl overflow-hidden flex flex-col max-h-[380px]">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-3 py-2 text-xs font-semibold text-gray-600 z-10">
-              Drive files — select Word transcripts ({selectable.length} eligible)
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-3 py-2 text-xs font-semibold text-gray-600 z-10 leading-snug">
+              Drive files — select Word transcripts ({selectable.length} eligible in folder; transcript chat uses up to{' '}
+              {MEETING_TRANSCRIPT_CHAT_MAX_FILES} per message — generate summaries still allows up to 25)
             </div>
             <div className="overflow-y-auto flex-1">
               {loading ? (
@@ -297,11 +301,7 @@ export default function MeetingNotesWorkspace() {
         </div>
 
         <div className="min-h-[480px] lg:min-h-[560px]">
-          <MeetingNotesChat
-            key={Array.from(selected).sort().join('|')}
-            selectedFileIds={Array.from(selected)}
-            files={files}
-          />
+          <MeetingNotesChat selectedFileIds={Array.from(selected)} files={files} />
         </div>
       </div>
     </div>

@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getGoogleDriveClient, getFileContent } from '@/lib/google-drive';
 import { extractTextFromDocument } from '@/lib/document-processor';
 import { chatCompletion } from '@/lib/openai';
-import { isMeetingTranscriptDriveFile } from '@/lib/meeting-transcript-files';
+import {
+  isMeetingTranscriptDriveFile,
+  MEETING_TRANSCRIPT_CHAT_MAX_FILES,
+} from '@/lib/meeting-transcript-files';
 
 export const maxDuration = 120;
 export const dynamic = 'force-dynamic';
 
-/** Matches meeting-notes generate-batch max files; total text still capped by MAX_COMBINED_CHARS. */
-const MAX_FILE_IDS = 25;
 const MAX_COMBINED_CHARS = 120_000;
 
 function stripAssistantFormatting(text: string) {
@@ -44,9 +45,9 @@ export async function POST(request: NextRequest) {
     const fileIds = Array.from(
       new Set(rawFileIds.map((id: unknown) => String(id || '').trim()).filter(Boolean))
     );
-    if (fileIds.length > MAX_FILE_IDS) {
+    if (fileIds.length > MEETING_TRANSCRIPT_CHAT_MAX_FILES) {
       return NextResponse.json(
-        { error: `Select at most ${MAX_FILE_IDS} transcripts for this chat.` },
+        { error: `Select at most ${MEETING_TRANSCRIPT_CHAT_MAX_FILES} transcripts for this chat.` },
         { status: 400 }
       );
     }
