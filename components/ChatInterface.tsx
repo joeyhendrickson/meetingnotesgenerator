@@ -12,6 +12,11 @@ interface ChatInterfaceProps {
   onAdvisorProjectChange?: (project: AdvisorProjectFile | null) => void;
   /** When set to video-scripting, opens the template workflow tuned for narration / scene work. */
   workflowVariant?: 'default' | 'video-scripting';
+  /**
+   * `knowledge` = main Drive + default Pinecone namespace.
+   * `section` = isolated section RAG only (`PINECONE_SECTION_NAMESPACE`), never mixed with the main KB.
+   */
+  knowledgeScope?: 'knowledge' | 'section';
 }
 
 interface Source {
@@ -43,6 +48,7 @@ export default function ChatInterface({
   advisorProject = null,
   onAdvisorProjectChange,
   workflowVariant = 'default',
+  knowledgeScope = 'knowledge',
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -74,7 +80,7 @@ export default function ChatInterface({
   const saveConversationToHistory = (conversationMessages: Message[]) => {
     if (conversationMessages.length === 0) return;
 
-    const conversationsKey = 'ultra_conversations';
+    const conversationsKey = 'meetingnotesgenerator_conversations';
     const existingConversations: Conversation[] = JSON.parse(
       localStorage.getItem(conversationsKey) || '[]'
     );
@@ -114,7 +120,7 @@ export default function ChatInterface({
   };
 
   const loadConversationsFromHistory = () => {
-    const conversationsKey = 'ultra_conversations';
+    const conversationsKey = 'meetingnotesgenerator_conversations';
     const stored = localStorage.getItem(conversationsKey);
     if (stored) {
       const parsed: Conversation[] = JSON.parse(stored);
@@ -169,7 +175,7 @@ export default function ChatInterface({
 
   const deleteConversation = (conversationId: string) => {
     const updated = conversations.filter(c => c.id !== conversationId);
-    localStorage.setItem('ultra_conversations', JSON.stringify(updated));
+    localStorage.setItem('meetingnotesgenerator_conversations', JSON.stringify(updated));
     setConversations(updated);
     if (selectedConversation === conversationId) {
       startNewConversation();
@@ -212,6 +218,7 @@ export default function ChatInterface({
         body: JSON.stringify({
           message: input,
           history: messages,
+          knowledgeScope,
           ...(advisorProject
             ? {
                 projectContext: advisorProject.text,
@@ -364,7 +371,7 @@ export default function ChatInterface({
     const title = firstUserMessage?.content.substring(0, 50) || 'Conversation';
     const date = new Date().toLocaleString();
     
-    let content = `Ultra Advisor - Conversation Export\n`;
+    let content = `Meeting Notes Generator - Conversation Export\n`;
     content += `Generated: ${date}\n`;
     content += `Title: ${title}\n\n`;
     content += `${'='.repeat(60)}\n\n`;
@@ -391,7 +398,7 @@ export default function ChatInterface({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ultra-chat-${Date.now()}.txt`;
+    a.download = `meeting-notes-chat-${Date.now()}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -413,14 +420,12 @@ export default function ChatInterface({
                 {workflowVariant === 'video-scripting' ? (
                   <>
                     Use a Word document (.doc or .docx) with scene or slide descriptions and visual notes. The advisor
-                    uses it for narration and structure, and still searches your vector knowledge base for Blackboard
-                    Ultra grounding when relevant.
+                    uses it for narration, structure, and scene-by-scene context.
                   </>
                 ) : (
                   <>
                     Use a Word document (.doc or .docx)—for example a video script or slide outline with visual notes.
-                    The advisor uses your file for structure and scene-by-scene context, and still queries the vector
-                    knowledge base so answers stay grounded in your Ultra materials when relevant.
+                    The advisor uses your file for structure and scene-by-scene context.
                   </>
                 )}
               </p>
@@ -608,14 +613,13 @@ export default function ChatInterface({
               </svg>
             </div>
             <p className="text-xl font-semibold mb-2 text-gray-800">
-              {workflowVariant === 'video-scripting' ? 'Video scripting' : 'Welcome to ULTRA Advisor'}
+              {workflowVariant === 'video-scripting' ? 'Video scripting' : 'Welcome to Meeting Notes Generator'}
             </p>
             {advisorProject ? (
               <>
                 <p className="text-gray-600 mb-1">
                   You have an active script or template. Ask for narration, scene-by-scene copy, or clarifications that
-                  follow your document&apos;s visuals and order. I will use your upload together with the vector
-                  knowledge base when answering.
+                  follow your document&apos;s visuals and order. Answers prioritize your uploaded document.
                 </p>
                 <p className="text-sm text-gray-500 mt-2">
                   Tip: reference scene or slide labels from your file so answers line up with your template.
@@ -624,10 +628,22 @@ export default function ChatInterface({
             ) : workflowVariant === 'video-scripting' ? (
               <>
                 <p className="text-gray-600 mb-1">
-                  Upload a script or slide-backed outline, then ask for narration aligned to each visual beat. The
-                  vector knowledge base still applies for Ultra-specific facts.
+                  Upload a script or slide-backed outline, then ask for narration aligned to each visual beat.
                 </p>
                 <p className="text-sm text-gray-500 mt-2">Use the panel above to attach your .doc or .docx.</p>
+              </>
+            ) : knowledgeScope === 'section' ? (
+              <>
+                <p className="text-gray-600 mb-1">
+                  This chat uses only the section workspace: documents in your section Drive folder after you vectorize
+                  them into the dedicated Pinecone namespace. It does not read the main knowledge base.
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Set <code className="text-xs bg-gray-100 px-1 rounded">GOOGLE_DRIVE_SECTION_FOLDER_ID</code> and{' '}
+                  <code className="text-xs bg-gray-100 px-1 rounded">PINECONE_SECTION_NAMESPACE</code>, then vectorize
+                  from the Section workspace tab. Attach a project file if you still want an uploaded template in
+                  context.
+                </p>
               </>
             ) : (
               <>
@@ -636,7 +652,9 @@ export default function ChatInterface({
                   questions.
                 </p>
                 <p className="text-sm text-gray-500 mt-2">
-                  I&apos;ll reference a vast knowledge base about Ultra to provide my responses.
+                  Answers use general knowledge about Blackboard Ultra. If Pinecone is configured and your Drive folder has
+                  been vectorized, retrieved excerpts are included automatically. Attach a project file when you want
+                  answers tied to your own template.
                 </p>
               </>
             )}
@@ -754,7 +772,7 @@ export default function ChatInterface({
                       <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
-                      <p className="text-xs text-gray-500 font-medium">Answered using knowledge base</p>
+                      <p className="text-xs text-gray-500 font-medium">Answered using attached context</p>
                     </div>
                   )}
                 </>

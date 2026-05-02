@@ -4,16 +4,24 @@ import { useState, useEffect } from 'react';
 import ChatInterface from '@/components/ChatInterface';
 import type { AdvisorProjectFile } from '@/components/ChatInterface';
 import DocumentBrowser from '@/components/DocumentBrowser';
+import MeetingTranscriptsHub from '@/components/MeetingTranscriptsHub';
+import MeetingNotesWorkspace from '@/components/MeetingNotesWorkspace';
 import ProgramPlanningWorkspace from '@/components/ProgramPlanningWorkspace';
 import AppMenu from '@/components/AppMenu';
 import WebsiteScanner from '@/components/WebsiteScanner';
 import Analytics from '@/components/Analytics';
 import YouTubeTranscriber from '@/components/YouTubeTranscriber';
 
-type MainTab = 'chat' | 'video-scripting' | 'program-planning' | 'browser';
+type MainTab =
+  | 'meeting-notes'
+  | 'chat'
+  | 'video-scripting'
+  | 'program-planning'
+  | 'browser'
+  | 'meeting-transcripts';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<MainTab>('chat');
+  const [activeTab, setActiveTab] = useState<MainTab>('meeting-notes');
   const [activeApp, setActiveApp] = useState<string | null>(null);
   const [videoAdvisorProject, setVideoAdvisorProject] = useState<AdvisorProjectFile | null>(null);
 
@@ -48,14 +56,35 @@ export default function Home() {
           <div className="absolute top-0 right-0 z-10">
             <AppMenu onSelectApp={handleAppSelect} />
           </div>
-          <h1 className="text-5xl font-extrabold text-black mb-3">Ultra Advisor</h1>
+          <h1 className="text-5xl font-extrabold text-black mb-3">Meeting Notes Generator</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Ultra How To Advisor and Web Content Analysis Tool, Powered by AI
+            Upload meeting transcripts in Drive and generate structured Word summaries—one per transcript.
           </p>
         </header>
 
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-wrap gap-2 mb-8 bg-white rounded-2xl shadow-lg p-2 border-2 border-black">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setActiveTab('meeting-notes');
+              }}
+              className={tabClass('meeting-notes')}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                <span className="text-center leading-tight">Transcript summaries</span>
+              </span>
+            </button>
             <button
               type="button"
               onClick={(e) => {
@@ -74,7 +103,7 @@ export default function Home() {
                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                   />
                 </svg>
-                <span className="text-center leading-tight">ULTRA Advisor</span>
+                <span className="text-center leading-tight">Chat</span>
               </span>
             </button>
             <button
@@ -137,7 +166,28 @@ export default function Home() {
                     d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
                   />
                 </svg>
-                <span className="text-center leading-tight">Vector DB Browser</span>
+                <span className="text-center leading-tight">Google Drive</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setActiveTab('meeting-transcripts');
+              }}
+              className={tabClass('meeting-transcripts')}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                <span className="text-center leading-tight">Meeting transcripts</span>
               </span>
             </button>
           </div>
@@ -149,6 +199,8 @@ export default function Home() {
               <Analytics onBack={() => setActiveApp(null)} />
             ) : activeApp === 'youtube-transcriber' ? (
               <YouTubeTranscriber onBack={() => setActiveApp(null)} />
+            ) : activeTab === 'meeting-notes' ? (
+              <MeetingNotesWorkspace />
             ) : activeTab === 'chat' ? (
               <ChatInterface />
             ) : activeTab === 'video-scripting' ? (
@@ -159,6 +211,8 @@ export default function Home() {
               />
             ) : activeTab === 'program-planning' ? (
               <ProgramPlanningWorkspace />
+            ) : activeTab === 'meeting-transcripts' ? (
+              <MeetingTranscriptsHub />
             ) : (
               <DocumentBrowser />
             )}

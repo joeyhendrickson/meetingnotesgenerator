@@ -22,38 +22,38 @@ This happens when the redirect URI in your request doesn't **exactly match** wha
 
 It should be:
 ```
-https://ultrawebaudit.vercel.app/api/auth/google/callback
+https://meetingnotesgenerator.vercel.app/api/auth/google/callback
 ```
 
 **Check for:**
 - ✅ Exact match (no extra spaces, no trailing slash)
 - ✅ `https://` (not `http://`)
-- ✅ Correct domain (`ultrawebaudit.vercel.app`)
+- ✅ Correct domain (`meetingnotesgenerator.vercel.app`)
 - ✅ Full path (`/api/auth/google/callback`)
 
 ### Step 2: Check Vercel Environment Variables
 
 1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
-2. Select your project: `ultrawebaudit`
+2. Select your project: `meetingnotesgenerator`
 3. Go to: **Settings** → **Environment Variables**
 4. Find `GOOGLE_REDIRECT_URI`
 5. **It must EXACTLY match** what's in Google Cloud Console
 
 Should be:
 ```
-https://ultrawebaudit.vercel.app/api/auth/google/callback
+https://meetingnotesgenerator.vercel.app/api/auth/google/callback
 ```
 
 ### Step 3: Common Mismatches
 
 ❌ **Wrong:**
-- `https://ultrawebaudit.vercel.app/api/auth/google/callback/` (trailing slash)
-- `https://ultrawebaudit-xyz.vercel.app/api/auth/google/callback` (different subdomain)
-- `http://ultrawebaudit.vercel.app/api/auth/google/callback` (http instead of https)
-- `https://ultrawebaudit.vercel.app/api/auth/google/callback ` (trailing space)
+- `https://meetingnotesgenerator.vercel.app/api/auth/google/callback/` (trailing slash)
+- `https://meetingnotesgenerator-xyz.vercel.app/api/auth/google/callback` (different subdomain)
+- `http://meetingnotesgenerator.vercel.app/api/auth/google/callback` (http instead of https)
+- `https://meetingnotesgenerator.vercel.app/api/auth/google/callback ` (trailing space)
 
 ✅ **Correct:**
-- `https://ultrawebaudit.vercel.app/api/auth/google/callback` (exact match)
+- `https://meetingnotesgenerator.vercel.app/api/auth/google/callback` (exact match)
 
 ### Step 4: Fix the Mismatch
 
@@ -62,12 +62,12 @@ https://ultrawebaudit.vercel.app/api/auth/google/callback
 1. **Update Google Cloud Console:**
    - Edit your OAuth client
    - Remove any incorrect URIs
-   - Add the correct one: `https://ultrawebaudit.vercel.app/api/auth/google/callback`
+   - Add the correct one: `https://meetingnotesgenerator.vercel.app/api/auth/google/callback`
    - Click **"SAVE"**
 
 2. **Update Vercel:**
    - Edit `GOOGLE_REDIRECT_URI` environment variable
-   - Set it to: `https://ultrawebaudit.vercel.app/api/auth/google/callback`
+   - Set it to: `https://meetingnotesgenerator.vercel.app/api/auth/google/callback`
    - Make sure it's set for **Production** environment
    - Click **"Save"**
 
@@ -86,12 +86,12 @@ https://ultrawebaudit.vercel.app/api/auth/google/callback
 
 Before trying to authorize again, verify:
 
-- [ ] Google Cloud Console has: `https://ultrawebaudit.vercel.app/api/auth/google/callback`
-- [ ] Vercel `GOOGLE_REDIRECT_URI` is: `https://ultrawebaudit.vercel.app/api/auth/google/callback`
+- [ ] Google Cloud Console has: `https://meetingnotesgenerator.vercel.app/api/auth/google/callback`
+- [ ] Vercel `GOOGLE_REDIRECT_URI` is: `https://meetingnotesgenerator.vercel.app/api/auth/google/callback`
 - [ ] No trailing slashes
 - [ ] No extra spaces
 - [ ] Using `https://` (not `http://`)
-- [ ] Domain matches exactly (`ultrawebaudit.vercel.app`)
+- [ ] Domain matches exactly (`meetingnotesgenerator.vercel.app`)
 - [ ] Waited 2-3 minutes after making changes
 
 ## Still Not Working?
@@ -103,8 +103,8 @@ Your Vercel app might have a different URL. Check:
 1. Go to Vercel Dashboard → Your Project → **Settings** → **Domains**
 2. See what your actual production domain is
 3. It might be:
-   - `ultrawebaudit.vercel.app` (default)
-   - `ultrawebaudit-xyz.vercel.app` (with random suffix)
+   - `meetingnotesgenerator.vercel.app` (default)
+   - `meetingnotesgenerator-xyz.vercel.app` (with random suffix)
    - A custom domain
 
 **Use the EXACT domain** that Vercel shows in both places.
@@ -113,7 +113,7 @@ Your Vercel app might have a different URL. Check:
 
 The error message from Google sometimes shows what URI was sent. Look for a line like:
 ```
-redirect_uri=https://ultrawebaudit.vercel.app/api/auth/google/callback
+redirect_uri=https://meetingnotesgenerator.vercel.app/api/auth/google/callback
 ```
 
 Compare this to what's in Google Cloud Console - they must match exactly.
@@ -122,7 +122,7 @@ Compare this to what's in Google Cloud Console - they must match exactly.
 
 After fixing, test by:
 
-1. Visit: `https://ultrawebaudit.vercel.app/api/auth/google`
+1. Visit: `https://meetingnotesgenerator.vercel.app/api/auth/google`
 2. Copy the `authUrl` from the JSON
 3. Open it in your browser
 4. You should be able to authorize without the mismatch error

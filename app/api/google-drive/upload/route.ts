@@ -7,7 +7,22 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const folderId = formData.get('folderId') as string | null;
+    const folderIdParam = (formData.get('folderId') as string | null)?.trim() || null;
+    const scope = (formData.get('scope') as string | null)?.trim();
+
+    let folderId: string | null = folderIdParam;
+    if (scope === 'section') {
+      folderId = process.env.GOOGLE_DRIVE_SECTION_FOLDER_ID?.trim() || null;
+      if (!folderId) {
+        return NextResponse.json(
+          {
+            error: 'Section folder not configured',
+            details: 'Set GOOGLE_DRIVE_SECTION_FOLDER_ID to upload into the meeting transcripts folder.',
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     if (!file) {
       return NextResponse.json(
@@ -28,7 +43,7 @@ export async function POST(request: NextRequest) {
       file.name,
       buffer,
       mimeType,
-      folderId || undefined
+      folderId?.trim() || undefined
     );
 
     return NextResponse.json({

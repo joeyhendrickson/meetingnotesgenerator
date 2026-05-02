@@ -1,12 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { chatCompletion, getEmbedding } from '@/lib/openai';
-import { queryPinecone } from '@/lib/pinecone';
+import { chatCompletion } from '@/lib/openai';
+import {
+  isKnowledgeBaseConfigured,
+  isScopeQueryable,
+  queryKnowledgeBase,
+  type KnowledgeScope,
+} from '@/lib/knowledge-base';
 
 const MAX_PROJECT_CONTEXT_CHARS = 100_000;
+const MAX_RAG_CONTEXT_CHARS = 24_000;
+const RAG_TOP_K = 5;
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, history = [], projectContext, projectFileName } = await request.json();
+    const {
+      message,
+      history = [],
+      projectContext,
+      projectFileName,
+      useKnowledgeBase = true,
+      knowledgeScope = 'knowledge',
+    } = await request.json();
+
+    const ragScope: KnowledgeScope =
+      knowledgeScope === 'section' ? 'section' : 'knowledge';
 
     if (!message) {
       return NextResponse.json(
@@ -31,48 +48,36 @@ export async function POST(request: NextRequest) {
           : raw;
     }
 
-    // Get embedding for the user's message
-    const queryEmbedding = await getEmbedding(message);
-
-    // Query Pinecone for relevant context (with error handling)
-    let matches: any[] = [];
-    const topK = hasProject ? 10 : 5;
-    try {
-      matches = await queryPinecone(queryEmbedding, topK);
-    } catch (pineconeError) {
-      console.warn('Pinecone query failed, continuing without context:', pineconeError);
-      // Continue without context if Pinecone fails
-      matches = [];
-    }
-
-    // Calculate confidence: favor strong vector matches; boost when a substantive project doc is attached
-    let confidenceScore = matches.length > 0 ? matches[0].score || 0 : 0;
-    if (hasProject) {
-      const len = truncatedProject.length;
-      if (len >= 400) {
-        confidenceScore = Math.max(confidenceScore, 0.82);
-      } else if (len >= 80) {
-        confidenceScore = Math.max(confidenceScore, 0.72);
-      }
-    }
-
-    const vectorContext = matches
-      .map((match) => {
-        const metadata = match.metadata || {};
-        return `[${metadata.title || 'Document'}]: ${metadata.text || match.id}`;
-      })
-      .join('\n\n');
-
     const projectBlock = hasProject
       ? `--- User uploaded project (${projectLabel}) ---\n${truncatedProject}\n--- End uploaded project ---`
       : '';
 
-    const kbBlock =
-      matches.length > 0
-        ? `--- Knowledge base (vector database) ---\n${vectorContext}\n--- End knowledge base ---`
-        : '';
+    let ragBlock = '';
+    const ragHits =
+      useKnowledgeBase !== false &&
+      isKnowledgeBaseConfigured() &&
+      isScopeQueryable(ragScope)
+        ? await queryKnowledgeBase(message, RAG_TOP_K, ragScope)
+        : [];
 
-    const context = [projectBlock, kbBlock].filter(Boolean).join('\n\n');
+    if (ragHits.length > 0) {
+      const pieces = ragHits.map(
+        (h, i) =>
+          `--- Excerpt ${i + 1}: ${h.title} (relevance ${(Math.min(1, Math.max(0, h.score)) * 100).toFixed(0)}%) ---\n${h.text}`
+      );
+      let joined = pieces.join('\n\n');
+      if (joined.length > MAX_RAG_CONTEXT_CHARS) {
+        joined = `${joined.slice(0, MAX_RAG_CONTEXT_CHARS)}\n\n[Retrieved context truncated.]`;
+      }
+      const ragHeader =
+        ragScope === 'section'
+          ? '--- Retrieved from section workspace documents (isolated index namespace; not the main knowledge base) ---'
+          : '--- Retrieved from main knowledge base (synced Google Drive folder) ---';
+      ragBlock = `${ragHeader}\n${joined}\n--- End retrieved excerpts ---`;
+    }
+
+    const context =
+      [ragBlock, projectBlock].filter(Boolean).join('\n\n') || undefined;
 
     const sources: Array<{
       id: string;
@@ -82,6 +87,17 @@ export async function POST(request: NextRequest) {
       fileId: string;
       chunkIndex: number;
     }> = [];
+
+    for (const h of ragHits) {
+      sources.push({
+        id: h.id,
+        title: h.title,
+        text: h.text.slice(0, 280),
+        score: Math.min(1, Math.max(0, h.score)),
+        fileId: h.fileId,
+        chunkIndex: h.chunkIndex,
+      });
+    }
 
     if (hasProject) {
       sources.push({
@@ -94,65 +110,60 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    sources.push(
-      ...matches.map((match) => ({
-        id: match.id,
-        title: match.metadata?.title || 'Untitled Document',
-        text: match.metadata?.text || '',
-        score: match.score || 0,
-        fileId: match.metadata?.fileId || '',
-        chunkIndex: match.metadata?.chunkIndex || 0,
-      }))
-    );
+    let confidenceScore = 0.5;
+    if (ragHits.length > 0) {
+      const avg =
+        ragHits.reduce((s, h) => s + Math.min(1, Math.max(0, h.score)), 0) / ragHits.length;
+      confidenceScore = 0.45 + avg * 0.45;
+    }
+    if (hasProject) {
+      const len = truncatedProject.length;
+      const projectPart = len >= 400 ? 0.82 : len >= 80 ? 0.72 : 0.55;
+      confidenceScore =
+        ragHits.length > 0 ? (confidenceScore + projectPart) / 2 : projectPart;
+    }
 
-    // Prepare chat history
     const messages = history.map((msg: { role: string; content: string }) => ({
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
     }));
 
-    // Add current message
     messages.push({
       role: 'user',
       content: message,
     });
 
-    // Get response from OpenAI with context
-    let response = await chatCompletion(messages, context || undefined, {
+    let response = await chatCompletion(messages, context, {
       projectMode: hasProject,
     });
 
-    // Remove markdown formatting to make it more conversational and human
-    // Remove headers (###, ##, #)
     response = response.replace(/^#{1,6}\s+/gm, '');
-    // Remove bold/italic markdown (**text**, *text*, __text__, _text_)
     response = response.replace(/\*\*([^*]+)\*\*/g, '$1');
     response = response.replace(/\*([^*]+)\*/g, '$1');
     response = response.replace(/__([^_]+)__/g, '$1');
     response = response.replace(/_([^_]+)_/g, '$1');
-    // Remove code blocks (```code``` and `code`)
     response = response.replace(/```[\s\S]*?```/g, '');
     response = response.replace(/`([^`]+)`/g, '$1');
-    // Remove links ([text](url))
     response = response.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-    // Remove list markers (-, *, +, 1.)
     response = response.replace(/^[\s]*[-*+]\s+/gm, '');
     response = response.replace(/^\d+\.\s+/gm, '');
-    // Clean up extra whitespace
     response = response.replace(/\n{3,}/g, '\n\n');
     response = response.trim();
 
+    const contextUsed = hasProject || ragHits.length > 0;
+
     return NextResponse.json({
       response,
-      contextUsed: hasProject || matches.length > 0,
+      contextUsed,
       projectContextUsed: hasProject,
+      knowledgeBaseUsed: ragHits.length > 0,
+      knowledgeScope: ragScope,
       sources,
       confidenceScore,
     });
   } catch (error) {
     console.error('Chat API error:', error);
-    
-    // Provide more detailed error information
+
     let errorMessage = 'Failed to process chat message';
     if (error instanceof Error) {
       errorMessage = error.message;
@@ -162,16 +173,14 @@ export async function POST(request: NextRequest) {
         name: error.name,
       });
     }
-    
-    // Check for common issues
+
     if (errorMessage.includes('API key') || errorMessage.includes('must be set')) {
-      errorMessage = 'Configuration error: Missing API keys. Please check your environment variables (OPENAI_API_KEY is required, PINECONE_API_KEY is optional but recommended).';
-    } else if (errorMessage.includes('Pinecone')) {
-      errorMessage = `Pinecone error: ${errorMessage}`;
+      errorMessage =
+        'Configuration error: Missing API keys. Please check your environment variables (OPENAI_API_KEY is required).';
     } else if (errorMessage.includes('OpenAI')) {
       errorMessage = `OpenAI error: ${errorMessage}`;
     }
-    
+
     return NextResponse.json(
       { error: errorMessage },
       { status: 500 }

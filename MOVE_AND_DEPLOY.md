@@ -1,68 +1,26 @@
-# Move Project and Deploy Instructions
+# MeetingNotesGenerator — deploy notes
 
-## Step 1: Move the Directory
+The Next.js app for **MeetingNotesGenerator** lives in this directory: `MeetingNotesGenerator/meetingnotesgenerator/`.
 
-Run these commands in your terminal:
+## Local build
 
 ```bash
-# Navigate to Projects directory
-cd "/Users/josephhendrickson/Code Local Storage/Projects"
-
-# Create UltraAdvisor directory if it doesn't exist
-mkdir -p UltraAdvisor
-
-# Move the ultrawebaudit folder
-mv "Ultra Web Audit/ultrawebaudit" UltraAdvisor/
+cd "/Users/josephhendrickson/Code Local Storage/Projects/MeetingNotesGenerator/meetingnotesgenerator"
+npm install
+npm run build
 ```
 
-## Step 2: Verify the Move
+## Vercel
+
+- Point the Vercel project at this folder (or the monorepo root with **Root Directory** = `meetingnotesgenerator`).
+- Set `GOOGLE_REDIRECT_URI` and `NEXT_PUBLIC_APP_URL` to your real production host (for example `https://meetingnotesgenerator.vercel.app` if that matches your Vercel domain).
+
+## Git
 
 ```bash
-# Navigate to the new location
-cd UltraAdvisor/ultrawebaudit
-
-# Verify package.json exists
-ls -la package.json
-
-# Check git status
+cd "/Users/josephhendrickson/Code Local Storage/Projects/MeetingNotesGenerator/meetingnotesgenerator"
 git status
-
-# Verify remote is still connected
-git remote -v
-```
-
-## Step 3: Push to GitHub
-
-```bash
-# Make sure you're in the project directory
-cd "/Users/josephhendrickson/Code Local Storage/Projects/UltraAdvisor/ultrawebaudit"
-
-# Add any changes (moving doesn't change git, but good to check)
-git add .
-
-# Commit if there are any changes
-git commit -m "Update project location to UltraAdvisor directory"
-
-# Push to GitHub
 git push origin main
 ```
 
-## Step 4: Redeploy in Vercel
-
-1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
-2. Select your project: `ultrawebaudit`
-3. Go to **Deployments** tab
-4. Click **"..."** on your latest deployment
-5. Click **"Redeploy"**
-
-OR trigger a new deployment by:
-
-1. Go to **Settings** → **Git**
-2. Click **"Redeploy"** or wait for automatic deployment from the GitHub push
-
-## Notes
-
-- Moving the directory locally doesn't affect GitHub or Vercel
-- Git tracks files by content, not location
-- The GitHub repository URL stays the same
-- Vercel will automatically detect the push and redeploy (if auto-deploy is enabled)
+Moving only the app folder does not change the GitHub remote URL; update Vercel **Root Directory** if you relocate the repo.

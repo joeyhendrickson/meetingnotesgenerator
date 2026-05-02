@@ -1,5 +1,5 @@
 {
-  "name": "ultrawebaudit",
+  "name": "meetingnotesgenerator",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,17 +7,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "vectorize": "tsx scripts/vectorize-drive.ts",
     "get-token": "tsx scripts/get-refresh-token.ts",
     "authorize": "tsx scripts/authorize.ts",
-    "create-index": "tsx scripts/create-pinecone-index.ts",
-    "check-index": "tsx scripts/check-pinecone-index.ts",
-    "test-drive": "tsx scripts/test-google-drive-access.ts"
+    "test-drive": "tsx scripts/test-google-drive-access.ts",
+    "vectorize": "tsx scripts/vectorize.ts"
   },
   "dependencies": {
-    "@pinecone-database/pinecone": "^2.0.0",
+    "@pinecone-database/pinecone": "^4.0.0",
     "axios": "^1.6.0",
     "docx": "^8.2.2",
+    "exceljs": "^4.4.0",
     "googleapis": "^126.0.0",
     "jszip": "^3.10.1",
     "mammoth": "^1.6.0",

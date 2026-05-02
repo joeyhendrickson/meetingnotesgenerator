@@ -40,7 +40,7 @@ In Google Cloud Console, make sure your OAuth client has **ONLY** the production
 2. Edit your OAuth client
 3. Under "Authorized redirect URIs", you should see:
    ```
-   https://ultrawebaudit.vercel.app/api/auth/google/callback
+   https://meetingnotesgenerator.vercel.app/api/auth/google/callback
    ```
 4. **Remove any other URIs** (like localhost ones)
 5. Click **"SAVE"**
@@ -53,7 +53,7 @@ In Google Cloud Console, make sure your OAuth client has **ONLY** the production
 
 ### Step 5: Test Again
 
-1. Visit: `https://ultrawebaudit.vercel.app/api/auth/google`
+1. Visit: `https://meetingnotesgenerator.vercel.app/api/auth/google`
 2. Copy the `authUrl` from the JSON response
 3. Open it in a new incognito window
 4. Try to authorize
@@ -65,7 +65,7 @@ In Google Cloud Console, make sure your OAuth client has **ONLY** the production
 The error message from Google sometimes shows what URI was received. Look for details like:
 
 ```
-redirect_uri=https://ultrawebaudit.vercel.app/api/auth/google/callback
+redirect_uri=https://meetingnotesgenerator.vercel.app/api/auth/google/callback
 ```
 
 Compare this to what's in Google Cloud Console - they must match **exactly**.
@@ -76,7 +76,7 @@ Sometimes there are hidden characters or encoding issues:
 
 1. In Vercel, delete the `GOOGLE_REDIRECT_URI` variable
 2. Re-add it by typing it fresh (don't copy-paste)
-3. Make sure it's exactly: `https://ultrawebaudit.vercel.app/api/auth/google/callback`
+3. Make sure it's exactly: `https://meetingnotesgenerator.vercel.app/api/auth/google/callback`
 4. Save and redeploy
 
 ### Verify OAuth Client Match
@@ -89,7 +89,7 @@ Make absolutely sure:
 ## Quick Checklist
 
 Before trying again:
-- [ ] `GOOGLE_REDIRECT_URI` in Vercel = `https://ultrawebaudit.vercel.app/api/auth/google/callback`
+- [ ] `GOOGLE_REDIRECT_URI` in Vercel = `https://meetingnotesgenerator.vercel.app/api/auth/google/callback`
 - [ ] `GOOGLE_CLIENT_ID` in Vercel matches Google Cloud Console
 - [ ] `GOOGLE_CLIENT_SECRET` in Vercel matches Google Cloud Console
 - [ ] OAuth client in Google Cloud Console has ONLY the production redirect URI

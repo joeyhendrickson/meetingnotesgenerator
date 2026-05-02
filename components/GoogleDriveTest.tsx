@@ -7,17 +7,6 @@ export default function GoogleDriveTest() {
   const [files, setFiles] = useState<any[]>([]);
   const [folderId, setFolderId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState<{
-    current: number;
-    total: number;
-    currentFile: string;
-  } | null>(null);
-  const [processedResults, setProcessedResults] = useState<{
-    totalFiles: number;
-    totalChunks: number;
-    processedFiles: any[];
-  } | null>(null);
 
   const handleGetAuthUrl = async () => {
     try {
@@ -61,8 +50,6 @@ export default function GoogleDriveTest() {
 
     setIsLoading(true);
     setStatus('Testing connection...');
-    setProcessedResults(null);
-
     try {
       const response = await fetch(`/api/google-drive/list?folderId=${folderId}`);
 
@@ -84,58 +71,6 @@ export default function GoogleDriveTest() {
       setFiles([]);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleProcessFiles = async () => {
-    if (!folderId.trim()) {
-      setStatus('❌ Please enter a folder ID first');
-      return;
-    }
-
-    setIsProcessing(true);
-    setStatus('Processing files and vectorizing into Pinecone...');
-    setProcessingProgress({ current: 0, total: files.length, currentFile: 'Starting...' });
-    setProcessedResults(null);
-
-    try {
-      const response = await fetch(`/api/google-drive/sync?folderId=${folderId}`, {
-        method: 'POST',
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setProcessedResults({
-          totalFiles: data.totalFiles || 0,
-          totalChunks: data.totalChunks || 0,
-          processedFiles: data.processedFiles || [],
-        });
-        
-        if (data.totalChunks > 0) {
-          setStatus(
-            `✅ ${data.message || `Successfully processed ${data.totalFiles} file(s) and created ${data.totalChunks} chunk(s) in Pinecone!`}`
-          );
-        } else {
-          const failedDetails = data.failedFileDetails?.length > 0 
-            ? `\n\nFailed files:\n${data.failedFileDetails.map((f: any) => `- ${f.name}: ${f.error || 'Unknown error'}`).join('\n')}`
-            : '';
-          setStatus(
-            `⚠️ ${data.message || 'Processing completed but no chunks were created.'}${failedDetails}\n\nPossible issues:\n- Files may be empty or contain only images\n- File types may not be supported\n- Text extraction may have failed`
-          );
-        }
-        setProcessingProgress(null);
-      } else {
-        const errorMsg = data.error || 'Failed to process files';
-        const details = data.details ? `\n\nDetails: ${data.details}` : '';
-        setStatus(`❌ Error: ${errorMsg}${details}`);
-        setProcessingProgress(null);
-      }
-    } catch (error) {
-      setStatus('❌ Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      setProcessingProgress(null);
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -248,97 +183,6 @@ export default function GoogleDriveTest() {
         </p>
       </div>
 
-      {/* Process and Vectorize Section - Step 3 */}
-      <div className="bg-gradient-to-br from-black to-black rounded-2xl p-6 border border-black">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center text-white font-bold shadow-md">
-            3
-          </div>
-          <h4 className="text-xl font-bold text-white">Process & Vectorize Files</h4>
-        </div>
-        <p className="text-white mb-4 leading-relaxed">
-          Process all files from your Google Drive folder, extract text, create embeddings, and upload them to Pinecone. 
-          Click this button whenever you add new files to your Google Drive folder to scan and reprocess them.
-        </p>
-        
-        {files.length > 0 && (
-          <div className="bg-white/60 rounded-lg p-4 mb-4 border border-black">
-            <p className="text-sm text-white mb-2">
-              <strong>{files.length}</strong> file(s) found in folder
-            </p>
-            <p className="text-xs text-white">
-              Files will be chunked, embedded, and stored in your Pinecone index
-            </p>
-          </div>
-        )}
-        
-        <div className="flex gap-3">
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              value={folderId}
-              onChange={(e) => setFolderId(e.target.value)}
-              placeholder="Enter Google Drive folder ID (or use from Step 2)"
-              className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white shadow-sm"
-            />
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-              </svg>
-            </div>
-          </div>
-          <button
-            onClick={handleProcessFiles}
-            disabled={isProcessing || !folderId.trim()}
-            className="px-8 py-4 bg-gradient-to-r from-black to-black text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200 flex items-center gap-3"
-          >
-            {isProcessing ? (
-              <>
-                <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Processing...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span>Process & Vectorize</span>
-              </>
-            )}
-          </button>
-        </div>
-        
-        <p className="text-xs text-white mt-3 flex items-center gap-1">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          This will scan all files in the folder, extract text, create chunks, generate embeddings, and upload to Pinecone. 
-          Run this whenever you add new files to your Google Drive folder.
-        </p>
-        
-        {/* Processing Progress */}
-        {processingProgress && (
-          <div className="mt-4 bg-white/80 rounded-lg p-4 border border-black">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-white">
-                Processing: {processingProgress.currentFile}
-              </span>
-              <span className="text-sm text-white">
-                {processingProgress.current} / {processingProgress.total}
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div
-                className="bg-gradient-to-r from-black to-black h-2.5 rounded-full transition-all duration-300"
-                style={{
-                  width: `${(processingProgress.current / processingProgress.total) * 100}%`,
-                }}
-              ></div>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Status Display */}
       {status && (
         <div
@@ -392,46 +236,6 @@ export default function GoogleDriveTest() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Processing Results */}
-      {processedResults && (
-        <div className="bg-gradient-to-br from-black to-black rounded-xl p-6 border-2 border-black shadow-lg">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-black to-black rounded-xl flex items-center justify-center shadow-md">
-              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div>
-              <h4 className="text-xl font-bold text-white">Processing Complete!</h4>
-              <p className="text-sm text-white">Files have been vectorized and uploaded to Pinecone</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="bg-white/60 rounded-lg p-4 border border-black">
-              <p className="text-sm text-white mb-1">Files Processed</p>
-              <p className="text-2xl font-bold text-white">{processedResults.totalFiles}</p>
-            </div>
-            <div className="bg-white/60 rounded-lg p-4 border border-black">
-              <p className="text-sm text-white mb-1">Chunks Created</p>
-              <p className="text-2xl font-bold text-white">{processedResults.totalChunks}</p>
-            </div>
-          </div>
-          <div className="bg-white/60 rounded-lg p-4 border border-black">
-            <p className="text-sm font-semibold text-white mb-3">Processed Files:</p>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {processedResults.processedFiles.map((file, index) => (
-                <div key={index} className="flex items-center justify-between text-sm">
-                  <span className="text-white truncate flex-1">{file.name}</span>
-                  <span className="px-2 py-1 bg-black text-white rounded-full text-xs font-semibold ml-2">
-                    {file.chunks} chunk{file.chunks !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       )}

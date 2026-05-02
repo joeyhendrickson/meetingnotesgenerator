@@ -62,6 +62,94 @@ export default function ProgramPlanningWorkspace() {
   const [masterBusy, setMasterBusy] = useState(false);
   const [masterError, setMasterError] = useState<string | null>(null);
   const [masterData, setMasterData] = useState<Record<string, unknown> | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportBusy, setExportBusy] = useState<'docx' | 'xlsx' | null>(null);
+
+  const downloadPlanningExport = useCallback(
+    async (format: 'docx' | 'xlsx') => {
+      if (!synthData) return;
+      setExportError(null);
+      setExportBusy(format);
+      try {
+        const res = await fetch('/api/program-planning/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            format,
+            exportKind: 'planning-pack',
+            synthData,
+            questionnaire,
+            programTitle: questionnaire.programName,
+          }),
+        });
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(typeof errJson.error === 'string' ? errJson.error : 'Export failed');
+        }
+        const blob = await res.blob();
+        const dispo = res.headers.get('Content-Disposition');
+        const match = dispo?.match(/filename="([^"]+)"/);
+        const name =
+          match?.[1] || (format === 'docx' ? 'program-planning-pack.docx' : 'program-planning-pack.xlsx');
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        setExportError(e instanceof Error ? e.message : 'Export failed');
+      } finally {
+        setExportBusy(null);
+      }
+    },
+    [synthData, questionnaire]
+  );
+
+  const downloadMasterExport = useCallback(
+    async (format: 'docx' | 'xlsx') => {
+      if (!masterData) return;
+      setExportError(null);
+      setExportBusy(format);
+      try {
+        const res = await fetch('/api/program-planning/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            format,
+            exportKind: 'master-plan',
+            masterData,
+            questionnaire,
+            programTitle: questionnaire.programName,
+          }),
+        });
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(typeof errJson.error === 'string' ? errJson.error : 'Export failed');
+        }
+        const blob = await res.blob();
+        const dispo = res.headers.get('Content-Disposition');
+        const match = dispo?.match(/filename="([^"]+)"/);
+        const name =
+          match?.[1] || (format === 'docx' ? 'program-master-plan.docx' : 'program-master-plan.xlsx');
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        setExportError(e instanceof Error ? e.message : 'Export failed');
+      } finally {
+        setExportBusy(null);
+      }
+    },
+    [masterData, questionnaire]
+  );
 
   const ingestIntake = useCallback(async () => {
     setIngestError(null);
@@ -334,6 +422,12 @@ export default function ProgramPlanningWorkspace() {
             >
               {synthBusy ? 'Generating…' : 'Generate planning pack'}
             </button>
+            <p className="text-xs text-gray-600 max-w-xl w-full sm:w-auto">
+              The <strong>planning pack</strong> is a first-pass program brief the model builds from your uploads and
+              questionnaire: roles/RACI-style structure, two vendor approaches, a phase outline, planning parameters,
+              and a Mermaid Gantt you can render or hand to PM tools. On the next step you can download it as Word or
+              Excel.
+            </p>
           </div>
           {synthError && <p className="text-sm text-red-600">{synthError}</p>}
           <div className="text-xs text-gray-500 border-t pt-3">
@@ -345,6 +439,51 @@ export default function ProgramPlanningWorkspace() {
 
       {step === 'outputs' && (
         <div className="space-y-6">
+          <div className="rounded-xl border-2 border-black bg-gray-50 p-4 text-sm text-gray-800 space-y-2">
+            <p>
+              <strong>What you are looking at:</strong> this is the generated <strong>planning pack</strong>—draft
+              program collateral produced in one pass so you can edit, share, or feed a steering review. It is not a
+              file until you export it; the panels below are previews.
+            </p>
+            <p>
+              <strong>Microsoft formats:</strong> use <strong>Download Word</strong> for a single .docx narrative and{' '}
+              <strong>Download Excel</strong> for worksheets (parameters, long text columns, phase table, and a sheet
+              with the raw Mermaid Gantt string).
+            </p>
+            <p className="text-gray-700">
+              <strong>Visio:</strong> this app does not emit native .vsdx files. Typical workflows are: import the Excel{' '}
+              <code className="bg-white px-1 rounded border">Phase_outline</code> sheet for a timeline/org data, paste
+              the Mermaid from Excel into{' '}
+              <a href="https://mermaid.live" className="underline font-medium text-black" target="_blank" rel="noreferrer">
+                mermaid.live
+              </a>{' '}
+              and export SVG for tracing in Visio, or rebuild the Gantt in Visio using your phase list as tasks.
+            </p>
+          </div>
+
+          {synthData && (
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold text-gray-800">Export planning pack:</span>
+              <button
+                type="button"
+                disabled={exportBusy !== null}
+                onClick={() => downloadPlanningExport('docx')}
+                className="px-4 py-2 text-sm font-semibold bg-white border-2 border-black rounded-lg hover:bg-gray-100 disabled:opacity-50"
+              >
+                {exportBusy === 'docx' ? 'Working…' : 'Download Word (.docx)'}
+              </button>
+              <button
+                type="button"
+                disabled={exportBusy !== null}
+                onClick={() => downloadPlanningExport('xlsx')}
+                className="px-4 py-2 text-sm font-semibold bg-white border-2 border-black rounded-lg hover:bg-gray-100 disabled:opacity-50"
+              >
+                {exportBusy === 'xlsx' ? 'Working…' : 'Download Excel (.xlsx)'}
+              </button>
+            </div>
+          )}
+          {exportError && <p className="text-sm text-red-600">{exportError}</p>}
+
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -400,7 +539,8 @@ export default function ProgramPlanningWorkspace() {
               <div className="px-4 py-2 bg-gray-900 border-b border-gray-700">
                 <h3 className="text-sm font-bold">Gantt (Mermaid)</h3>
                 <p className="text-xs text-gray-400 mt-1">
-                  Paste into{' '}
+                  Same text is on the Excel sheet <span className="text-gray-200 font-mono">Gantt_Mermaid</span>. Paste
+                  into{' '}
                   <a href="https://mermaid.live" className="underline text-white" target="_blank" rel="noreferrer">
                     mermaid.live
                   </a>{' '}
@@ -466,6 +606,25 @@ export default function ProgramPlanningWorkspace() {
 
           {masterData && (
             <div className="space-y-6 border-t-2 border-gray-200 pt-6">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-semibold text-gray-800">Export Master Plan:</span>
+                <button
+                  type="button"
+                  disabled={exportBusy !== null}
+                  onClick={() => downloadMasterExport('docx')}
+                  className="px-4 py-2 text-sm font-semibold bg-white border-2 border-black rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                >
+                  {exportBusy === 'docx' ? 'Working…' : 'Download Word (.docx)'}
+                </button>
+                <button
+                  type="button"
+                  disabled={exportBusy !== null}
+                  onClick={() => downloadMasterExport('xlsx')}
+                  className="px-4 py-2 text-sm font-semibold bg-white border-2 border-black rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                >
+                  {exportBusy === 'xlsx' ? 'Working…' : 'Download Excel (.xlsx)'}
+                </button>
+              </div>
               <h3 className="text-lg font-bold text-gray-900">Master Plan analysis</h3>
               <MarkdownBlock
                 title="Executive summary"

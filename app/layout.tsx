@@ -5,8 +5,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Ultra Advisor',
-  description: 'Ultra How To Advisor and Web Content Analysis Tool, Powered by AI',
+  title: 'Meeting Notes Generator',
+  description: 'AI-assisted meeting notes, documents, and workflows',
 };
 
 export default function RootLayout({

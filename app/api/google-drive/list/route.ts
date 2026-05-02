@@ -5,18 +5,37 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const folderId =
-      request.nextUrl.searchParams.get('folderId') ||
-      process.env.GOOGLE_DRIVE_FOLDER_ID;
+    const scope = request.nextUrl.searchParams.get('scope');
+    const paramFolderId = request.nextUrl.searchParams.get('folderId');
 
-    if (!folderId) {
-      return NextResponse.json(
-        { error: 'Folder ID is required' },
-        { status: 400 }
-      );
+    let folderId: string | undefined;
+    let sectionConfigured = true;
+
+    if (scope === 'section') {
+      folderId =
+        paramFolderId?.trim() ||
+        process.env.GOOGLE_DRIVE_SECTION_FOLDER_ID?.trim();
+      if (!folderId) {
+        sectionConfigured = false;
+        return NextResponse.json({
+          success: true,
+          files: [],
+          totalFiles: 0,
+          scope: 'section',
+          sectionConfigured: false,
+        });
+      }
+    } else {
+      folderId =
+        paramFolderId?.trim() || process.env.GOOGLE_DRIVE_FOLDER_ID?.trim();
+      if (!folderId) {
+        return NextResponse.json(
+          { error: 'Folder ID is required' },
+          { status: 400 }
+        );
+      }
     }
 
-    // List files in the folder
     const files = await listFilesInFolder(folderId);
 
     return NextResponse.json({
@@ -30,6 +49,7 @@ export async function GET(request: NextRequest) {
         modifiedTime: file.modifiedTime,
       })),
       totalFiles: files.length,
+      ...(scope === 'section' ? { scope: 'section', sectionConfigured } : {}),
     });
   } catch (error) {
     console.error('Google Drive list error:', error);

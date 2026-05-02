@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findRelevantContext } from '@/lib/document-processor';
 import { chatCompletion } from '@/lib/openai';
 
 export async function POST(request: NextRequest) {
@@ -22,16 +21,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Combine knowledge base context with contextual documents if provided
-    console.log('Finding relevant context from knowledge base...');
-    let context = await findRelevantContext(`${sectionTitle} ${projectPrompt}`, 10);
-    console.log('Context found, length:', context.length);
-    
+    let context = '';
     if (contextualDocuments && contextualDocuments.length > 0) {
       const contextualText = contextualDocuments
         .map((doc: { content: string; name: string }) => `[${doc.name}]:\n${doc.content}`)
         .join('\n\n---\n\n');
-      context = `${context}\n\nAdditional Context from Uploaded Documents:\n${contextualText}`;
+      context = `Additional context from uploaded documents:\n${contextualText}`;
     }
 
     // Generate content for this section
@@ -43,8 +38,8 @@ Current Section Content: ${sectionContent || '(empty)'}
 Project Description:
 ${projectPrompt}
 
-Knowledge Base Context:
-${context}
+Supporting context (uploads only):
+${context || '(none — use the project description and section details.)'}
 
 Generate appropriate content for this section that:
 - Aligns with the project description
@@ -67,7 +62,7 @@ Return only the filled content for this section, without repeating the section t
           content: fillPrompt,
         },
       ],
-      context,
+      context.trim() ? context : undefined,
       { temperature: 0.5, preserveSystemMessage: true }
     );
 

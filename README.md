@@ -1,13 +1,13 @@
-# Ultra Advisor
+# MeetingNotesGenerator
 
-An intelligent FAQ and advisory application for Blackboard Ultra content management, powered by OpenAI GPT-4o-mini, Pinecone vector database, and Google Drive integration.
+An AI-assisted app for meeting notes, documents, Blackboard Ultra guidance, and related workflows. Powered by OpenAI and Google Drive integration.
 
 ## Features
 
-- **AI Chat Interface**: Interactive FAQ and advisory system using GPT-4o-mini
-- **Vector Database**: Pinecone integration for semantic search across indexed documents
+- **Transcript summaries (Google Drive)**: Upload `.doc` / `.docx` transcripts to Drive, select them in the app, and generate one structured Word summary per file (see `MEETING_NOTES_GOOGLE_SETUP.md`).
+- **AI Chat Interface**: Interactive assistant using GPT-4o-mini
 - **Google Drive Integration**: OAuth 2.0 authentication for accessing and processing documents
-- **Document Processing**: Upload project management templates and automatically fill them with relevant information from the knowledge base
+- **Document Processing**: Upload project management templates and fill sections with AI assistance
 - **Document Download**: Export completed documents with a single click
 
 ## Setup
@@ -46,7 +46,7 @@ This application is configured for deployment on Vercel. Make sure to set all en
 ## Project Structure
 
 - `/app` - Next.js app router pages and components
-- `/lib` - Utility functions and integrations (Pinecone, OpenAI, Google Drive)
+- `/lib` - Utility functions and integrations (OpenAI, Google Drive)
 - `/components` - React components
 - `/api` - API routes for backend functionality
 

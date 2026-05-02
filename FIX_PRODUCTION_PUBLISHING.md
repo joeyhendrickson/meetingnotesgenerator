@@ -19,10 +19,10 @@ The best approach is to create **two separate OAuth 2.0 Client IDs**:
 2. Navigate to: **APIs & Services** → **Credentials**
 3. Click **"+ CREATE CREDENTIALS"** → **"OAuth client ID"**
 4. Select **"Web application"**
-5. Name it: **"Ultra Web Audit - Production"**
+5. Name it: **"MeetingNotesGenerator - Production"**
 6. Under **"Authorized redirect URIs"**, add **ONLY**:
    ```
-   https://ultrawebaudit.vercel.app/api/auth/google/callback
+   https://meetingnotesgenerator.vercel.app/api/auth/google/callback
    ```
 7. Click **"Create"**
 8. **Copy the Client ID and Secret** - you'll need these for Vercel
@@ -47,7 +47,7 @@ In Vercel Dashboard → Settings → Environment Variables, use the **PRODUCTION
 # Use the PRODUCTION client (HTTPS only)
 GOOGLE_CLIENT_ID=your_production_client_id
 GOOGLE_CLIENT_SECRET=your_production_client_secret
-GOOGLE_REDIRECT_URI=https://ultrawebaudit.vercel.app/api/auth/google/callback
+GOOGLE_REDIRECT_URI=https://meetingnotesgenerator.vercel.app/api/auth/google/callback
 ```
 
 ### Step 4: Publish the Production Client
@@ -82,7 +82,7 @@ If you prefer to use a single OAuth client:
 1. **Temporarily remove localhost redirect URI:**
    - Go to Credentials → Edit your OAuth client
    - Remove `http://localhost:3003/api/auth/google/callback`
-   - Keep only: `https://ultrawebaudit.vercel.app/api/auth/google/callback`
+   - Keep only: `https://meetingnotesgenerator.vercel.app/api/auth/google/callback`
    - Save
 
 2. **Publish to production:**

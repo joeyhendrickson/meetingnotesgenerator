@@ -1,5 +1,4 @@
-import { getEmbedding, chatCompletion } from './openai';
-import { queryPinecone } from './pinecone';
+import { chatCompletion } from './openai';
 import { PDFDocument } from 'pdf-lib';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
@@ -79,7 +78,7 @@ function isOleWordBinaryDoc(buf: Buffer): boolean {
 }
 
 async function extractLegacyBinaryDoc(buffer: Buffer): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ultra-doc-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'mng-doc-'));
   const filePath = path.join(dir, 'document.doc');
   try {
     await fs.writeFile(filePath, buffer);
@@ -204,27 +203,6 @@ export async function extractTextFromDocument(
   }
 }
 
-export async function findRelevantContext(
-  query: string,
-  topK: number = 10
-): Promise<string> {
-  // Get embedding for the query
-  const queryEmbedding = await getEmbedding(query);
-
-  // Query Pinecone
-  const matches = await queryPinecone(queryEmbedding, topK);
-
-  // Combine matches into context
-  const context = matches
-    .map((match) => {
-      const metadata = match.metadata || {};
-      return `[${metadata.title || 'Document'}]: ${metadata.text || match.id}`;
-    })
-    .join('\n\n');
-
-  return context;
-}
-
 // Helper function to analyze template structure
 function analyzeTemplateStructure(templateContent: string): {
   sections: Array<{ title: string; content: string; startIndex: number; endIndex: number }>;
@@ -317,9 +295,6 @@ export async function fillDocumentTemplate(
 
   // If no explicit placeholders found, use AI to intelligently fill the document
   if (placeholders.length === 0 && projectPrompt) {
-    // Get relevant context based on project prompt
-    const context = await findRelevantContext(projectPrompt, 15);
-    
     // Build a very explicit prompt that emphasizes structure preservation
     // Include the template structure analysis to help GPT understand what to preserve
     const structureInfo = structure.sections.length > 1 
@@ -347,9 +322,6 @@ PROJECT DESCRIPTION:
 ${projectPrompt}
 ${structureInfo}
 
-KNOWLEDGE BASE CONTEXT:
-${context}
-
 TASK: Fill in the template above while maintaining its EXACT structure. Return the complete document with all sections filled in, but with the same headings, formatting, and organization as the original template.`;
     
     // Use GPT to analyze template structure and fill it based on project prompt
@@ -365,7 +337,7 @@ TASK: Fill in the template above while maintaining its EXACT structure. Return t
           content: structurePreservationPrompt,
         },
       ],
-      context,
+      undefined,
       { temperature: 0.3, preserveSystemMessage: true } // Lower temperature for more deterministic output
     );
 
@@ -385,13 +357,9 @@ TASK: Fill in the template above while maintaining its EXACT structure. Return t
       ? `${placeholder} ${projectPrompt}`
       : placeholder;
     
-    // Find relevant context from Pinecone using the enhanced query
-    const context = await findRelevantContext(query, 10);
-
-    // Use GPT to generate appropriate content for the placeholder
-    const systemContext = projectPrompt 
-      ? `Project Context: ${projectPrompt}\n\nKnowledge Base Context:\n${context}`
-      : `Knowledge Base Context:\n${context}`;
+    const systemContext = projectPrompt
+      ? `Project Context: ${projectPrompt}`
+      : 'No additional reference documents; use clear, professional project-management language.';
 
     // Enhanced prompt that considers template context
     const placeholderContext = `Template section context: ${structure.sections.find(s => 
@@ -408,7 +376,7 @@ TASK: Fill in the template above while maintaining its EXACT structure. Return t
           role: 'user',
           content: projectPrompt
             ? `Fill in the placeholder "${placeholder}" in a project management document.\n\n${placeholderContext}\n\n${systemContext}\n\nProvide content that:\n- Fits naturally into the document structure\n- Aligns with the project goals: ${projectPrompt}\n- Is specific, professional, and relevant\n- Matches the tone and style of project management documents\n- Is concise but informative`
-            : `Fill in the placeholder "${placeholder}" with relevant, specific information about ADA Compliance.\n\n${placeholderContext}\n\nContext:\n${context}\n\nProvide a concise, professional response that fits naturally into the project management document.`,
+            : `Fill in the placeholder "${placeholder}" with relevant, specific information about ADA Compliance.\n\n${placeholderContext}\n\n${systemContext}\n\nProvide a concise, professional response that fits naturally into the project management document.`,
         },
       ],
       systemContext,

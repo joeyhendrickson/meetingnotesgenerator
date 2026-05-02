@@ -1,5 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { queryPineconeByFileId } from '@/lib/pinecone';
+import { getGoogleDriveClient, getFileContent } from '@/lib/google-drive';
+import { extractTextFromDocument } from '@/lib/document-processor';
+
+const MAX_PREVIEW_SLICE = 8000;
+
+function sliceForPreview(text: string, fileId: string, title: string) {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  const chunks: Array<{
+    id: string;
+    chunkIndex: number;
+    text: string;
+    score: number;
+    title: string;
+  }> = [];
+
+  let start = 0;
+  let idx = 0;
+  while (start < trimmed.length) {
+    const slice = trimmed.slice(start, start + MAX_PREVIEW_SLICE).trim();
+    if (slice.length > 0) {
+      chunks.push({
+        id: `${fileId}-preview-${idx}`,
+        chunkIndex: idx,
+        text: slice,
+        score: 0,
+        title: title || 'Document',
+      });
+      idx += 1;
+    }
+    start += MAX_PREVIEW_SLICE;
+  }
+
+  return chunks;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,40 +47,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Query Pinecone for all chunks of a specific file using metadata filter
-    const matches = await queryPineconeByFileId(fileId);
-    
-    // Filter matches by fileId (in case filter didn't work, fallback)
-    const filteredMatches = matches.filter(match => {
-      const matchFileId = match.metadata?.fileId || match.metadata?.file_id;
-      return matchFileId === fileId;
+    const drive = await getGoogleDriveClient();
+    const meta = await drive.files.get({
+      fileId,
+      fields: 'id, name, mimeType',
     });
 
-    if (filteredMatches.length === 0) {
+    const mimeType = meta.data.mimeType || 'application/octet-stream';
+    const fileName = meta.data.name || 'document';
+
+    const buffer = await getFileContent(fileId, mimeType);
+    const text = await extractTextFromDocument(buffer, mimeType, fileName);
+
+    if (!text || text.trim().length === 0) {
       return NextResponse.json({
         success: false,
-        error: 'No content found for this document. It may not be fully indexed in the vector database.',
+        error: 'No readable text found in this file.',
         chunks: [],
         fileId,
         chunkCount: 0,
       });
     }
 
-    // Sort matches by chunkIndex to reconstruct the document order
-    filteredMatches.sort((a, b) => {
-      const aIndex = Number(a.metadata?.chunkIndex || a.metadata?.chunk_index || 0) || 0;
-      const bIndex = Number(b.metadata?.chunkIndex || b.metadata?.chunk_index || 0) || 0;
-      return aIndex - bIndex;
-    });
-
-    // Return chunks individually with metadata
-    const chunks = filteredMatches.map((match, index) => ({
-      id: match.id,
-      chunkIndex: Number(match.metadata?.chunkIndex || match.metadata?.chunk_index || index),
-      text: match.metadata?.text || match.metadata?.content || '',
-      score: match.score || 0,
-      title: match.metadata?.title || 'Untitled',
-    }));
+    const chunks = sliceForPreview(text, fileId, fileName);
 
     return NextResponse.json({
       success: true,
@@ -56,7 +80,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Document preview API error:', error);
     return NextResponse.json(
-      { error: 'Failed to get document preview' },
+      { error: 'Failed to load document preview' },
       { status: 500 }
     );
   }

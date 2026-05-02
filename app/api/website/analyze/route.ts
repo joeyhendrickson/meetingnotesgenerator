@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
-import { chatCompletion, getEmbedding } from '@/lib/openai';
-import { queryPinecone } from '@/lib/pinecone';
+import { chatCompletion } from '@/lib/openai';
 
 export const maxDuration = 300; // 5 minutes (Vercel Hobby plan limit)
 
@@ -164,26 +163,6 @@ export async function POST(request: NextRequest) {
         // Detect outdated Blackboard Learn terminology
         const outdatedIssues = detectOutdatedTerminology(pageContent.text);
         
-        // Get relevant Blackboard Ultra context from vector database
-        let ultraContext = '';
-        try {
-          console.log(`[Analyze] Querying vector database for ${url}`);
-          const queryEmbedding = await getEmbedding(pageContent.text.substring(0, 5000));
-          const matches = await queryPinecone(queryEmbedding, 10);
-          
-          ultraContext = matches
-            .map((match) => {
-              const metadata = match.metadata || {};
-              return `[${metadata.title || 'Document'}]: ${metadata.text || ''}`;
-            })
-            .join('\n\n');
-          
-          console.log(`[Analyze] Found ${matches.length} relevant chunks from vector database`);
-        } catch (error) {
-          console.error(`[Analyze] Error querying vector database for ${url}:`, error);
-          // Continue without context - analysis will still work
-        }
-
         // Detect if this is an instructor-facing page
         const isInstructorPage = /instructor|faculty|teacher|professor|staff|teaching|course\s+setup|how\s+to|tutorial|guide/i.test(pageContent.text);
         const hasLearnFeatures = /grade\s+center|content\s+area|course\s+menu|discussion\s+board|assignment|dropbox|test|quiz|survey/i.test(pageContent.text);
@@ -202,7 +181,7 @@ ${pageContent.text.substring(0, 18000)}
 
 ${outdatedIssues.length > 0 ? `\nDetected Outdated Terms:\n${outdatedIssues.map(i => `- "${i.term}" found in: ${i.context.substring(0, 150)}...`).join('\n')}` : ''}
 
-${ultraContext ? `\nRelevant Blackboard Ultra Context from Knowledge Base:\n${ultraContext.substring(0, 4000)}` : '\nNote: No relevant context found in knowledge base.'}
+Base recommendations on the webpage content above and standard Blackboard Ultra migration best practices.
 
 Page Context:
 - Instructor-facing: ${isInstructorPage ? 'YES - Include dev shell and workshop links' : 'NO'}
@@ -306,7 +285,7 @@ Only return valid JSON, no other text.`;
                 content: analysisPrompt,
               },
             ],
-            ultraContext ? ultraContext : undefined,
+            undefined,
             { temperature: 0.3 }
           );
 

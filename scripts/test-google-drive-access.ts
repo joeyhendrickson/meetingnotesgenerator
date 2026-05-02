@@ -76,8 +76,8 @@ async function testGoogleDriveAccess() {
     }
 
     console.log('\n✅ Google Drive access test completed successfully!');
-    console.log('\n💡 If files are not appearing in Vector DB Browser:');
-    console.log('   1. Make sure files have been vectorized (run: npm run vectorize)');
+    console.log('\n💡 If files are not appearing in the Google Drive tab:');
+    console.log('   1. Confirm GOOGLE_DRIVE_FOLDER_ID matches the folder that contains your files');
     console.log('   2. Check that files are in the correct folder');
     console.log('   3. Verify the folder ID matches GOOGLE_DRIVE_FOLDER_ID');
     

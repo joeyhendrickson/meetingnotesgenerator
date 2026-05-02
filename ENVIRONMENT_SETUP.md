@@ -48,13 +48,13 @@ For Vercel deployments, you need to set environment variables **separately** in 
 ### Setting Up in Vercel Dashboard
 
 1. Go to your Vercel project: https://vercel.com/dashboard
-2. Click on your project: `ultrawebaudit`
+2. Click on your project: `meetingnotesgenerator`
 3. Go to **Settings** → **Environment Variables**
 4. For each variable, click **"Add New"** and select which environments to apply it to:
 
 #### Production Environment
 
-Set these for **Production** (your live site at `https://ultrawebaudit.vercel.app`):
+Set these for **Production** (your live site at `https://meetingnotesgenerator.vercel.app`):
 
 ```env
 OPENAI_API_KEY=sk-...
@@ -63,14 +63,14 @@ PINECONE_ENVIRONMENT=us-east-1-aws
 PINECONE_INDEX_NAME=ultra-index
 GOOGLE_CLIENT_ID=your_client_id_here
 GOOGLE_CLIENT_SECRET=your_client_secret_here
-GOOGLE_REDIRECT_URI=https://ultrawebaudit.vercel.app/api/auth/google/callback
+GOOGLE_REDIRECT_URI=https://meetingnotesgenerator.vercel.app/api/auth/google/callback
 GOOGLE_REFRESH_TOKEN=your_refresh_token_here
 GOOGLE_DRIVE_FOLDER_ID=your_folder_id_here
-NEXT_PUBLIC_APP_URL=https://ultrawebaudit.vercel.app
+NEXT_PUBLIC_APP_URL=https://meetingnotesgenerator.vercel.app
 ```
 
 **Important:** 
-- `GOOGLE_REDIRECT_URI` must be `https://ultrawebaudit.vercel.app/api/auth/google/callback` for production
+- `GOOGLE_REDIRECT_URI` must be `https://meetingnotesgenerator.vercel.app/api/auth/google/callback` for production
 - Make sure this exact URI is also added in Google Cloud Console under "Authorized redirect URIs"
 
 #### Preview Environment
@@ -82,7 +82,7 @@ For **Preview** deployments (pull requests, branches), you can either:
 
 **Option B:** Use preview-specific URLs (if you need different behavior)
 - Set `GOOGLE_REDIRECT_URI` to a preview URL pattern
-- Note: Preview URLs are dynamic (e.g., `https://ultrawebaudit-git-branch-username.vercel.app`)
+- Note: Preview URLs are dynamic (e.g., `https://meetingnotesgenerator-git-branch-username.vercel.app`)
 - You may need to add wildcard redirect URIs in Google Cloud Console
 
 #### Development Environment (Vercel)
@@ -102,7 +102,7 @@ The "Development" environment in Vercel is for Vercel's local development tools.
    - Edit your OAuth 2.0 Client ID
    - Add **both** redirect URIs:
      - `http://localhost:3003/api/auth/google/callback` (for local dev)
-     - `https://ultrawebaudit.vercel.app/api/auth/google/callback` (for production)
+     - `https://meetingnotesgenerator.vercel.app/api/auth/google/callback` (for production)
 
 3. **Redeploy:**
    - After adding variables, redeploy your project
@@ -113,7 +113,7 @@ The "Development" environment in Vercel is for Vercel's local development tools.
 | Environment | Where to Set | GOOGLE_REDIRECT_URI Value |
 |------------|--------------|---------------------------|
 | **Local Dev** | `.env.local` file | `http://localhost:3003/api/auth/google/callback` |
-| **Production** | Vercel Dashboard → Production | `https://ultrawebaudit.vercel.app/api/auth/google/callback` |
+| **Production** | Vercel Dashboard → Production | `https://meetingnotesgenerator.vercel.app/api/auth/google/callback` |
 | **Preview** | Vercel Dashboard → Preview | Same as Production (or preview-specific URL) |
 
 ## Common Mistakes
@@ -141,7 +141,7 @@ npm run dev
 ```
 
 ### Test Production:
-- Visit https://ultrawebaudit.vercel.app
+- Visit https://meetingnotesgenerator.vercel.app
 - Check that OAuth redirects work correctly
 
 ## Need Help?

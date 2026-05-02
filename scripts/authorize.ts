@@ -19,7 +19,7 @@ async function authorize(code: string) {
     console.log('⚠️  IMPORTANT: Make sure to:');
     console.log('   1. Update .env.local with the refresh token above');
     console.log('   2. Restart your server if it\'s running');
-    console.log('   3. Run "npm run vectorize" again\n');
+    console.log('   3. Restart the app and open the Google Drive tab to confirm files list\n');
 
   } catch (error) {
     console.error('❌ Error:', error);

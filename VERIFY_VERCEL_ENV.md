@@ -4,7 +4,7 @@
 
 Since your Google Cloud Console has:
 ```
-https://ultrawebaudit.vercel.app/api/auth/google/callback
+https://meetingnotesgenerator.vercel.app/api/auth/google/callback
 ```
 
 You need to verify these match in Vercel:
@@ -12,13 +12,13 @@ You need to verify these match in Vercel:
 ### Step 1: Check Vercel Environment Variables
 
 1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
-2. Click on your project: `ultrawebaudit`
+2. Click on your project: `meetingnotesgenerator`
 3. Go to: **Settings** → **Environment Variables**
 4. Check these variables:
 
 **GOOGLE_REDIRECT_URI** should be:
 ```
-https://ultrawebaudit.vercel.app/api/auth/google/callback
+https://meetingnotesgenerator.vercel.app/api/auth/google/callback
 ```
 
 **GOOGLE_CLIENT_ID** should match the Client ID from Google Cloud Console
@@ -30,7 +30,7 @@ https://ultrawebaudit.vercel.app/api/auth/google/callback
 When editing in Vercel, make sure there are:
 - ❌ No trailing spaces
 - ❌ No trailing slashes
-- ✅ Exact match: `https://ultrawebaudit.vercel.app/api/auth/google/callback`
+- ✅ Exact match: `https://meetingnotesgenerator.vercel.app/api/auth/google/callback`
 
 ### Step 3: Check Which Environment
 
