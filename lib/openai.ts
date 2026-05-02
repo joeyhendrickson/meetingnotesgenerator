@@ -65,13 +65,14 @@ export async function chatCompletion(
     ? [{ role: 'system' as const, content: systemMessage }, ...messages]
     : messages;
 
-  const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
+  const model = process.env.OPENAI_MODEL || 'gpt-5.4-mini';
   
   const response = await client.chat.completions.create({
     model: model,
     messages: allMessages,
     temperature: options?.temperature ?? 0.7,
-    max_tokens: 4000, // Increased for longer template filling
+    // gpt-5.* requires max_completion_tokens; older chat models accept it too
+    max_completion_tokens: 4000,
   });
 
   return response.choices[0]?.message?.content || '';
@@ -88,7 +89,7 @@ export async function programPlanningCompletion(
   }
 ): Promise<string> {
   const client = getOpenAIClient();
-  const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
+  const model = process.env.OPENAI_MODEL || 'gpt-5.4-mini';
   const system =
     options?.systemPrompt ||
     'You are an expert program and portfolio manager. Follow the user instructions precisely.';
@@ -100,7 +101,7 @@ export async function programPlanningCompletion(
       { role: 'user', content: userContent },
     ],
     temperature: options?.temperature ?? 0.35,
-    max_tokens: options?.maxTokens ?? 7000,
+    max_completion_tokens: options?.maxTokens ?? 7000,
     ...(options?.jsonMode ? { response_format: { type: 'json_object' as const } } : {}),
   });
 

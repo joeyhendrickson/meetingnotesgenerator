@@ -5,7 +5,7 @@ An AI-assisted app for meeting notes, documents, Blackboard Ultra guidance, and 
 ## Features
 
 - **Transcript summaries (Google Drive)**: Upload `.doc` / `.docx` transcripts to Drive, select them in the app, and generate one structured Word summary per file (see `MEETING_NOTES_GOOGLE_SETUP.md`).
-- **AI Chat Interface**: Interactive assistant using GPT-4o-mini
+- **AI Chat Interface**: Interactive assistant (default model `gpt-5.4-mini`, override with `OPENAI_MODEL`)
 - **Google Drive Integration**: OAuth 2.0 authentication for accessing and processing documents
 - **Document Processing**: Upload project management templates and fill sections with AI assistance
 - **Document Download**: Export completed documents with a single click

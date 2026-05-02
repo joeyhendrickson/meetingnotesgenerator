@@ -17,6 +17,7 @@ async function testModelAccess() {
 
   // Models to test
   const modelsToTest = [
+    'gpt-5.4-mini',
     'gpt-5.2',
     'gpt-5.2-thinking',
     'gpt-5.2-instant',
@@ -38,7 +39,7 @@ async function testModelAccess() {
       const response = await client.chat.completions.create({
         model: model,
         messages: [{ role: 'user', content: 'Hello' }],
-        max_tokens: 5,
+        max_completion_tokens: 5,
       });
       console.log(`✅ ${model} - ACCESSIBLE\n`);
     } catch (error: any) {

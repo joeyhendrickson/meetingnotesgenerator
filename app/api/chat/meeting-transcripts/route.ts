@@ -7,8 +7,9 @@ import { isMeetingTranscriptDriveFile } from '@/lib/meeting-transcript-files';
 export const maxDuration = 120;
 export const dynamic = 'force-dynamic';
 
-const MAX_FILE_IDS = 10;
-const MAX_COMBINED_CHARS = 100_000;
+/** Matches meeting-notes generate-batch max files; total text still capped by MAX_COMBINED_CHARS. */
+const MAX_FILE_IDS = 25;
+const MAX_COMBINED_CHARS = 120_000;
 
 function stripAssistantFormatting(text: string) {
   let response = text.replace(/^#{1,6}\s+/gm, '');
